@@ -19,5 +19,3 @@ sock = socket.socket(socket.AF_INET, # Internet
 msg_encoded = msg.encode('utf-8')
 
 sock.sendto(msg_encoded, (host_ip, UDP_PORT))
-sock.sendto(msg_encoded, (host_ip, UDP_PORT))
-sock.sendto(msg_encoded, (host_ip, UDP_PORT))

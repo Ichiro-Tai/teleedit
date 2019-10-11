@@ -1,5 +1,5 @@
 class File:
-    f
+    f = ''
     def __init__(self, s):
         self.f = open(s, "a+")
     def append(self, s):
