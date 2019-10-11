@@ -20,8 +20,18 @@ sock.bind((ip_addr, UDP_PORT))
 
 while True:
     data, addr = sock.recvfrom(1024) # buffer size is 1024 bytes
-    if(data is None): continue
+    if(data is None):
+        continue
+    msg = data.decode('utf8')
+    print ("received message:", msg.decode('utf8'))
 
-    msg = data.decode('utf-8')
-    print ("received message:", msg)
+    message_array = str.split(" ", 3)
+    timestamp = message_array[0]
+    command_type = message_array[1]
+    message = message_array[2]
+
+    #ip address
+    if command_type == "C":
+
+
     test_file.append(msg)

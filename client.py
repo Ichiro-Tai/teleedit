@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-
+import datetime
+import time
 import sys
 import socket
 
@@ -11,7 +12,14 @@ host_ip = sys.argv[1]
 
 UDP_PORT = 5005
 
-msg = "TEST MESSAGE FROM CLIENT"
+hostname = socket.gethostname()
+IPAddr = socket.gethostbyname(hostname)
+
+connect_msg = "C"
+
+
+msg = str(time.time())
+msg += " " + connect_msg + " " + IPAddr
 
 sock = socket.socket(socket.AF_INET, # Internet
                      socket.SOCK_DGRAM) # UDP
