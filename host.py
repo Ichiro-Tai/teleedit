@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 
 import socket
+import json
 from util import File
 
-clients = []
 
 HOST_UDP_PORT = 5005
 CLIENT_UDP_PORT = 6006
@@ -26,18 +26,16 @@ while True:
     msg = data.decode('utf8')
     print ("received message:", msg)
 
-    message_array = msg.split(" ", 3)
-    timestamp = message_array[0]
-    command_type = message_array[1]
-    message = message_array[2]
+    msg = json.loads(msg)
 
-    #ip address
-    if command_type == "C":
-        clients.append(message)
-
-    for client in clients:
+    # Receive Connect Cmd
+    if msg['CmdType'] == "Connect":
+        client = msg['Data']
         greetings = "you are connected"
         greetings_encoded = greetings.encode("utf-8")
         sock.sendto(greetings_encoded, (client, CLIENT_UDP_PORT))
-
-    test_file.append(msg)
+    
+    if msg['CmdType'] == "Append":
+        test_file.append(msg['Data'])
+        test_file.save()
+    
