@@ -6,7 +6,7 @@ import socket
 import json
 
 '''
-    Json format:     
+    Json format:
         "CmdType" : "Append" / "Connect"
         "Timestamp" : time.time()
         "Data" : string
@@ -36,7 +36,7 @@ def sendAppendCmd(s):
 def sendConnectCmd(ip_addr):
     cmd = {"CmdType" : "Connect", "Data" : ip_addr, "Timestamp" : time.time()}
     cmd = json.dumps(cmd).encode('utf-8')
-    sock.sendto(cmd, (host_ip, HOST_UDP_PORT))   
+    sock.sendto(cmd, (host_ip, HOST_UDP_PORT))
 
 cnt = 0
 
@@ -48,11 +48,11 @@ while True:
     if(data is None):
         continue
     msg = data.decode('utf8')
-    if (msg== "you are connected")
+    if (msg == "you are connected"):
         print ("Connected", msg)
         break
 
 while True:
     print("Append input:")
-    append_str = input() 
+    append_str = input()
     sendAppendCmd(append_str)

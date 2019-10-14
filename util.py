@@ -1,7 +1,7 @@
 import time
 SAVE_TIME_INTERVAL = 3
 class File:
-    f
+    f = ''
     fileName = ''
     lastSaved = 0
 
@@ -12,13 +12,13 @@ class File:
 
     def append(self, s):
         self.f.write(s)
-    
+
     def save(self):
         now = time.time()
         if(now - self.lastSaved > SAVE_TIME_INTERVAL):
             self.lastSaved = now
             self.f.close()
             self.f = open(self.fileName, "a+")
-    
+
     def close(self):
         self.f.close()
