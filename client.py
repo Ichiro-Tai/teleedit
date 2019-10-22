@@ -41,16 +41,16 @@ def sendConnectCmd(ip_addr):
 cnt = 0
 
 while True:
-    if (cnt % 10 ==0):
-        sendConnectCmd(IPAddr)
-    cnt += 1
-    data, addr = sock.recv(1024) # buffer size is 1024 bytes
-    if(data is None):
-        continue
+    sendConnectCmd(IPAddr)
+    data = sock.recv(1024) # buffer size is @param bytes
     msg = data.decode('utf8')
-    if (msg == "you are connected"):
-        print ("Connected", msg)
-        break
+    if(msg is None):
+        time.sleep(1)
+    else:
+        if (msg == "you are connected"):
+            print ("Connected ", msg)
+            break
+    
 '''
 while True:
     print("Append input:")

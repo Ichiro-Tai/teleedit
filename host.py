@@ -8,7 +8,7 @@ HOST_TCP_PORT = 5005
 
 def listen_client_thread(client_sock, addr):
     while True:
-        data = sock.recv(1024) # buffer size is 1024 bytes
+        data = client_sock.recv(1024) # buffer size is 1024 bytes
         if(data is None):
             continue
         msg = data.decode('utf8')
@@ -16,11 +16,9 @@ def listen_client_thread(client_sock, addr):
         msg = json.loads(msg)
         # Receive Connect Cmd
         if msg['CmdType'] == "Connect":
-            #client = msg['Data']
-            greetings = "you are connected" + msg['Data']
+            greetings = "you are connected"
             greetings_encoded = greetings.encode("utf-8")
             client_sock.send(greetings_encoded)
-            #sock.sendto(greetings_encoded, (addr[0], HOST_TCP_PORT))
     client_sock.close()
 
 host_name = socket.gethostname()
@@ -35,8 +33,8 @@ sock.listen(5)
 print("Listening:")
 while True:
     client_socket, addr = sock.accept()
-    print("New client： ", client_socket, addr[0], addr[1])
-    thread.start_new_thread(listen_client_thread, 
-                            (client_socket, addr))
+    print("New client\uff1a ", client_socket, addr[0], addr[1])
+    start_new_thread(listen_client_thread, 
+                    (client_socket, addr))
     
 sock.close()
