@@ -12,7 +12,6 @@ import json
         "Data" : string
 '''
 HOST_TCP_PORT = 5005
-CLIENT_TCP_PORT = 6006
 
 if (len(sys.argv) - 1 < 1):
     print("Invalid format")
@@ -25,7 +24,8 @@ IPAddr = socket.gethostbyname(hostname)
 
 sock = socket.socket(socket.AF_INET, # Internet
                      socket.SOCK_STREAM) # TCP
-sock.connect((IPAddr, CLIENT_TCP_PORT))
+print("Try connect")
+sock.connect((host_ip, HOST_TCP_PORT))
 
 def sendAppendCmd(s):
     # s is the string to append
@@ -51,8 +51,9 @@ while True:
     if (msg == "you are connected"):
         print ("Connected", msg)
         break
-
+'''
 while True:
     print("Append input:")
     append_str = input()
     sendAppendCmd(append_str)
+'''
