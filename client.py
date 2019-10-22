@@ -1,59 +1,58 @@
-# -*- coding: utf-8 -*-
 import datetime
 import time
 import sys
 import socket
 import json
 
-'''
-    Json format:
-        "CmdType" : "Append" / "Connect"
-        "Timestamp" : time.time()
-        "Data" : string
-'''
 HOST_TCP_PORT = 5005
 
-if (len(sys.argv) - 1 < 1):
-    print("Invalid format")
-    exit(0)
+class Client:
+    def __init__(self, host_ip):
+        self.client_ip = socket.gethostbyname(socket.gethostname())
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.host_ip = host_ip
 
-host_ip = sys.argv[1]
+        self.sock.connect((self.host_ip, HOST_TCP_PORT))
 
-hostname = socket.gethostname()
-IPAddr = socket.gethostbyname(hostname)
+        self.send_connect_command()
+        print(self.listen())
 
-sock = socket.socket(socket.AF_INET, # Internet
-                     socket.SOCK_STREAM) # TCP
-print("Try connect")
-sock.connect((host_ip, HOST_TCP_PORT))
+    def send_json_message(self, msg_dict):
+        cmd_json = json.dumps(msg_dict).encode('utf-8')
+        self.sock.send(cmd_json)
 
-def sendAppendCmd(s):
-    # s is the string to append
-    cmd = {"CmdType" : "Append", "Data" : s, "Timestamp" : time.time()}
-    cmd = json.dumps(cmd).encode('utf-8')
-    sock.send(cmd)
+    def send_append_command(self, text):
+        cmd = {
+            'type' : 'append',
+            'data' : text
+        }
+        self.send_json_message(cmd)
 
-def sendConnectCmd(ip_addr):
-    cmd = {"CmdType" : "Connect", "Data" : ip_addr, "Timestamp" : time.time()}
-    cmd = json.dumps(cmd).encode('utf-8')
-    sock.send(cmd)
+    def send_connect_command(self):
+        cmd = {
+            'type': 'connect'
+        }
+        self.send_json_message(cmd)
 
-cnt = 0
+    def listen(self):
+        while True:
+            response = self.sock.recv(1024)
+            msg = response.decode('utf8')
+            if(msg is None):
+                time.sleep(1)
+            else:
+                return msg
 
-while True:
-    sendConnectCmd(IPAddr)
-    data = sock.recv(1024) # buffer size is @param bytes
-    msg = data.decode('utf8')
-    if(msg is None):
-        time.sleep(1)
-    else:
-        if (msg == "you are connected"):
-            print ("Connected ", msg)
-            break
-    
-'''
-while True:
-    print("Append input:")
-    append_str = input()
-    sendAppendCmd(append_str)
-'''
+
+
+if __name__ == '__main__':
+    from util import parse_start_input
+
+    host_ip = parse_start_input()
+    client = Client(host_ip)
+
+    while True:
+        print('Append text: ', end='')
+        append_str = input()
+        client.send_append_command(append_str)
+        print(client.listen())

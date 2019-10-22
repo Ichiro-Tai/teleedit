@@ -1,5 +1,8 @@
 import time
+import sys
+
 SAVE_TIME_INTERVAL = 3
+
 class File:
     f = ''
     fileName = ''
@@ -22,3 +25,10 @@ class File:
 
     def close(self):
         self.f.close()
+
+def parse_start_input():
+    if (len(sys.argv) - 1 < 1):
+        print("Invalid format")
+        exit(1)
+
+    return sys.argv[1]

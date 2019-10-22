@@ -15,7 +15,7 @@ def listen_client_thread(client_sock, addr):
         print ("received message:", msg)
         msg = json.loads(msg)
         # Receive Connect Cmd
-        if msg['CmdType'] == "Connect":
+        if msg['type'] == "connect":
             greetings = "you are connected"
             greetings_encoded = greetings.encode("utf-8")
             client_sock.send(greetings_encoded)
@@ -34,7 +34,7 @@ print("Listening:")
 while True:
     client_socket, addr = sock.accept()
     print("New client\uff1a ", client_socket, addr[0], addr[1])
-    start_new_thread(listen_client_thread, 
+    start_new_thread(listen_client_thread,
                     (client_socket, addr))
-    
+
 sock.close()
