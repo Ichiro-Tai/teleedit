@@ -13,5 +13,6 @@ int main(){
     bind(sock, result->ai_addr, result->ai_addrlen);
     while(true){
         cout << accept(sock, NULL, NULL) << endl;
+
     }
 }
