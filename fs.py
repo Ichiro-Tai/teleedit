@@ -6,7 +6,6 @@ from fuse import FUSE, FuseOSError, Operations, LoggingMixIn
 
 from client import Client
 
-
 class FS(LoggingMixIn, Operations):
     def __init__(self, host_ip):
         # self.client = Client(host_ip)

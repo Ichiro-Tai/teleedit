@@ -107,6 +107,7 @@ void* handleConnection(void* sock) {
     //   return NULL;
     // }
   }
+  return NULL;
 }
 //
 // int main() {
