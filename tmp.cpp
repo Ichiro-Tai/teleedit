@@ -1,7 +1,10 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <iostream>
+#include <pthread.h>
 int main(){
+    int num_threads = 0;
+    pthread_t * threads = NULL;
     struct sockaddr addr, *result;
     int sock = socket(AF_INET, SOCK_STREAM,IPPROTO_TCP);
     addr.ai_family = AF_INET;
@@ -12,7 +15,10 @@ int main(){
     freeaddrinfo(retult);
     bind(sock, result->ai_addr, result->ai_addrlen);
     while(true){
-        cout << accept(sock, NULL, NULL) << endl;
-
+        int client_sock = accept(sock, NULL, NULL);
+        num_threads += 1;
+        threads = realloc(sizeof(pthread_t) * num_threads);
+        pthread_create(threads + (num_threads-1), NULL, handleConnection, (void*)client_sock);
     }
+    
 }
