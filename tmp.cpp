@@ -2,6 +2,7 @@
 #include <sys/socket.h>
 #include <iostream>
 #include <pthread.h>
+#include "thread.cpp"
 int main(){
     int num_threads = 0;
     pthread_t * threads = NULL;
@@ -18,7 +19,7 @@ int main(){
         int client_sock = accept(sock, NULL, NULL);
         num_threads += 1;
         threads = realloc(sizeof(pthread_t) * num_threads);
-        pthread_create(threads + (num_threads-1), NULL, handleConnection, (void*)client_sock);
+        pthread_create(threads + (num_threads-1), NULL, &handleConnection, (void*)client_sock);
     }
-    
+
 }
