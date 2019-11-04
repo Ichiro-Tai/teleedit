@@ -89,8 +89,9 @@ string insert_to_current_file(string filename, string to_insert, int pos) {
 void* handleConnection(void* sock) {
   while (true) {
     int timer = time(0);
-    int socket = *((int*) sock);
+    int socket = ((int)(long) sock);
     string msg = recv(socket, 1024);
+    cout << "Raw msg: " << msg << endl;
     //decode to utf8
     rapidjson::Document json_msg;
     json_msg.Parse(msg.c_str());

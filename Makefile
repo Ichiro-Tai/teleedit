@@ -1,2 +1,2 @@
 all:
-	g++ -g -lpthread -std=c++11 thread.cpp host.cpp -o host
+	g++ -g -lpthread -std=c++11 host.cpp -o host
