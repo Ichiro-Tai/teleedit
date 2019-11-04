@@ -96,10 +96,14 @@ void* handleConnection(void* sock) {
     rapidjson::Document json_msg;
     json_msg.Parse(msg.c_str());
     rapidjson::Value& type = json_msg["type"];
+    string conenction_type = type.GetString();
 
-    if (type.GetString() == "append") {
-      rapidjson::Value& to_append = json_msg["data"];
-      string feedback = append_to_current_file("test_file", to_append.GetString());
+    if (conenction_type.compare("connect") == 0) {
+      string greetings = "you are connected";
+      send(socket, greetings.c_str(), greetings.length(), 0);
+    } else if (conenction_type.compare("append") == 0) {
+      string to_append = json_msg["data"].GetString();
+      string feedback = append_to_current_file("test_file", to_append);
       send(socket, feedback.c_str(), feedback.length(), 0);
     }
     //
