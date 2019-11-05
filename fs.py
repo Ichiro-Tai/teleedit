@@ -62,7 +62,7 @@ class FS(LoggingMixIn, Operations):
             'offset': offset
         }
         client.send_json_message(cmd)
-        return client.listen()
+        return client.listen(size + 50) # 50 for potential overhead
 
     def write(self, path, data, offset, fh):
         cmd = {

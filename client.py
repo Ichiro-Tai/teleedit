@@ -41,9 +41,9 @@ class Client:
         }
         self.send_json_message(cmd)
 
-    def listen(self):
+    def listen(self, size=1024):
         while True:
-            response = self.sock.recv(1024)
+            response = self.sock.recv(size)
             msg = response.decode('utf8')
             if(msg is None):
                 time.sleep(1)
