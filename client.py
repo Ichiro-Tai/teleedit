@@ -71,10 +71,12 @@ if __name__ == '__main__':
 
     host_ip = parse_start_input()
     client = Client(host_ip)
+    client.send_append_command("HI")
+    '''
     client.send_connect_command()
     client.send_access_command("t.txt")
     while True:
         print('Append text: ', end='')
         cmd = input()
         client.send_append_command(cmd)
-        print(client.listen())
+        print(client.listen())'''

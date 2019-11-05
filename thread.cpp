@@ -43,6 +43,11 @@ string read_current_file(string filename) {
   return to_return;
 }
 
+string read_current_file(string filename, size_t size, size_t offset){
+  string allContents = read_current_file(filename);
+  return string.substr(offset, size);
+}
+
 string append_to_current_file(string filename, string to_append) {
   ofstream file;
   file.open(filename.c_str(), std::ios_base::app);
@@ -96,15 +101,20 @@ void* handleConnection(void* sock) {
     rapidjson::Document json_msg;
     json_msg.Parse(msg.c_str());
     rapidjson::Value& type = json_msg["type"];
-    string conenction_type = type.GetString();
+    string connection_type = type.GetString();
 
-    if (conenction_type.compare("connect") == 0) {
+    if (connection_type.compare("connect") == 0) {
       string greetings = "you are connected";
       send(socket, greetings.c_str(), greetings.length(), 0);
-    } else if (conenction_type.compare("append") == 0) {
+    } else if (connection_type.compare("append") == 0) {
       string to_append = json_msg["data"].GetString();
       string feedback = append_to_current_file("test_file", to_append);
       send(socket, feedback.c_str(), feedback.length(), 0);
+    } else if (connection_type.compare("read") == 0){
+      string filename = json_msg["path"].GetString();
+      size_t size = json_msg["size"]
+    } else if (connection_type.compare("write") == 0){
+
     }
     //
     // if (type.GetString() == "disconnect") {
