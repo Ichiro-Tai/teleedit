@@ -1,4 +1,5 @@
 import json
+import ast
 from time import time
 from stat import S_IFDIR, S_IFREG
 
@@ -8,12 +9,11 @@ from client import Client
 
 class FS(LoggingMixIn, Operations):
     def __init__(self, host_ip):
-        # self.client = Client(host_ip)
+        self.client = Client(host_ip)
         self.fd = 0
 
     def destroy(self, path):
-        # self.client.close() # TODO: check correctness
-        pass
+        self.client.send_disconnect_command()
 
     #--------------------------
     # Filesystem methods
@@ -22,35 +22,32 @@ class FS(LoggingMixIn, Operations):
         if path.startswith('/'):
             path = path[1:]
 
-        print(path)
-        if path == 'abc.txt':
-            return dict(
-                st_mode=(S_IFREG),
-                st_nlink=3, # TODO: change this value
-                st_size=100,
-                st_ctime=0,
-                st_mtime=0,
-                st_atime=time()
-            )
-        else:
-            return dict(
-                st_mode=(S_IFDIR),
-                st_nlink=3, # TODO: change this value
-                st_size=100,
-                st_ctime=0,
-                st_mtime=0,
-                st_atime=time()
-            )
+        cmd = {
+            'type': 'getattr',
+            'path': path
+        }
+        self.client.send_json_message(cmd)
+        attr_str = self.client.listen()
+        return ast.literal_eval(attr_str)
 
     def readdir(self, path, fh):
-        return ['.', '..'] + ['abc.txt']
-
-        # TODO: read dir from host
+        cmd = {
+            'type' : 'read_dir',
+            'path' : path
+        }
+        self.client.send_json_message(cmd)
+        return self.client.listen()
 
     #--------------------------
     # File methods
     #--------------------------
     def open(self, path, flags):
+        cmd = {
+            'type' : 'open',
+            'path' : path
+        }
+        self.client.send_json_message(cmd)
+
         self.fd += 1
         return self.fd
 
@@ -58,9 +55,6 @@ class FS(LoggingMixIn, Operations):
         return 0
 
     def read(self, path, size, offset, fh):
-        print(fh)
-        return 'xyz read abc'
-
         cmd = {
             'type': 'read',
             'path': path,
@@ -68,12 +62,9 @@ class FS(LoggingMixIn, Operations):
             'offset': offset
         }
         client.send_json_message(cmd)
-        read_buf = client.listen()
-        return read_buf
+        return client.listen()
 
     def write(self, path, data, offset, fh):
-        return 100
-
         cmd = {
             'type': 'write',
             'path': path,
@@ -81,8 +72,7 @@ class FS(LoggingMixIn, Operations):
             'offset': offset
         }
         client.send_json_message(cmd)
-        # TODO: get feedback from host
-        return len(data)
+        return client.listen()
 
 if __name__ == '__main__':
     import tempfile
