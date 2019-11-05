@@ -16,25 +16,11 @@ class Client:
 
         self.send_connect_command()
         print(self.listen())
-        
+
 
     def send_json_message(self, msg_dict):
         cmd_json = json.dumps(msg_dict).encode('utf-8')
         self.sock.send(cmd_json)
-
-    def send_get_dir_command(self, path = ''):
-        cmd = {
-            'type' : 'get_dir',
-            'data' : path
-        }
-        self.send_json_message(cmd) 
-
-    def send_access_command(self, path):
-        cmd = {
-            'type' : 'access',
-            'data' : path
-        }
-        self.send_json_message(cmd)
 
     def send_append_command(self, text):
         cmd = {
@@ -49,9 +35,9 @@ class Client:
         }
         self.send_json_message(cmd)
 
-    def send_logoff_command(self):
+    def send_disconnect_command(self):
         cmd = {
-            'type': 'log_off'
+            'type': 'disconnect'
         }
         self.send_json_message(cmd)
 
@@ -72,7 +58,7 @@ if __name__ == '__main__':
     host_ip = parse_start_input()
     client = Client(host_ip)
     client.send_connect_command()
-    client.send_access_command("t.txt")
+    client.send_open_command("t.txt")
     while True:
         print('Append text: ', end='')
         cmd = input()
