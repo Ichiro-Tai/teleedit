@@ -12,6 +12,9 @@
 #include "include/rapidjson/writer.h"
 #include "include/rapidjson/stringbuffer.h"
 
+#include <sys/types.h>
+#include <sys/stat.h>
+
 #define TIMEOUT 600
 using namespace std;
 static string root_dir = "root_dir";
@@ -65,6 +68,27 @@ string read_dir(string dir_name) {
   return directory_contents;
 }
 
+string read_stat(string filename) {
+  struct stat file_stat;
+  int status = stat(filename, &file_stat);
+
+  if (status == -1) {
+    return "CANNOT OPEN FILE\n";
+  }
+
+  string res = "";
+  res += "st_mode:" + file_stat->st_mode + ";";
+  res += "st_nlink:" + file_stat->st_nlink + ";";
+  res += "st_size:" + file_stat->st_size + ";";
+  res += "st_uid:" + file_stat->st_uid + ";";
+  res += "st_gid:" + file_stat->st_gid + ";";
+  res += "st_atime:" + file_stat->st_atime + ";";
+  res += "st_mtime:" + file_stat->st_mtime + ";";
+  res += "st_ctime:" + file_stat->st_ctime + ";";
+
+  return res;
+}
+
 void* handleConnection(void* sock) {
   while (true) {
     int timer = time(0);
@@ -96,15 +120,15 @@ void* handleConnection(void* sock) {
       string path = root_dir + json_msg["path"].GetString();
       string feedback = read_dir(path);
       send(socket, feedback.c_str(), feedback.length(), 0);
-    } else if (type.GetString() == "disconnect") {
+    } else if (connection_type.compare("disconnect") == 0) {
       send(socket, "disconnected from host", 22, 0);
       return NULL;
+    } else if (connection_type.compare("getattr") == 0) {
+      string path  = root_dir + json_msg["path"].GetString();
+      string feedback = read_stat(path);
+      send(socket, feedback.c_str(), feedback.length(), 0);
     }
   }
   return NULL;
 }
-//
-// int main() {
-//   cout << insert_to_current_file("fuck", "ccc", 3);
-//   return 0;
-// }
+
