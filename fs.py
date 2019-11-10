@@ -32,28 +32,20 @@ class FS(LoggingMixIn, Operations):
 
     def readdir(self, path, fh):
         cmd = {
-            'type' : 'read_dir',
+            'type' : 'readdir',
             'path' : path
         }
         self.client.send_json_message(cmd)
-        return self.client.listen()
+        retval = self.client.listen()
+        if retval.startswith('CANNOT OPEN DIR') or retval.startswith('EMPTY'):
+            return []
+        retval = retval.split('\n')[:-1]
+        # print(retval)
+        return retval
 
     #--------------------------
     # File methods
     #--------------------------
-    def open(self, path, flags):
-        cmd = {
-            'type' : 'open',
-            'path' : path
-        }
-        self.client.send_json_message(cmd)
-
-        self.fd += 1
-        return self.fd
-
-    def create(self, path, fh):
-        return 0
-
     def read(self, path, size, offset, fh):
         cmd = {
             'type': 'read',

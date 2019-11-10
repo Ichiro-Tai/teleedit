@@ -55,7 +55,7 @@ string read_dir(string dir_name) {
   }
 
   string directory_contents;
-  while ((de == readdir(dr)) != NULL) {
+  while ((de = readdir(dr)) != NULL) {
     directory_contents += de->d_name;
     directory_contents += "\n";
   }
@@ -81,27 +81,25 @@ void* handleConnection(void* sock) {
       string greetings = "you are connected";
       send(socket, greetings.c_str(), greetings.length(), 0);
     } else if (connection_type.compare("read") == 0){
-      string path = json_msg["path"].GetString() + root_dir;
+      string path = root_dir + json_msg["path"].GetString();
       size_t size = json_msg["size"].GetInt();
       size_t offset = json_msg["offset"].GetInt();
       string feedback = read_file(path, size, offset);
       send(socket, feedback.c_str(), feedback.length(), 0);
     } else if (connection_type.compare("write") == 0){
-      string path = json_msg["path"].GetString() + root_dir;
+      string path = root_dir + json_msg["path"].GetString();
       string data = json_msg["data"].GetString();
       size_t offset = json_msg["offset"].GetInt();
       string feedback = write_file(path, data, offset);
       send(socket, feedback.c_str(), feedback.length(), 0);
     } else if (connection_type.compare("readdir") == 0){
-      string path = json_msg["path"].GetString() + root_dir;
+      string path = root_dir + json_msg["path"].GetString();
       string feedback = read_dir(path);
       send(socket, feedback.c_str(), feedback.length(), 0);
+    } else if (type.GetString() == "disconnect") {
+      send(socket, "disconnected from host", 22, 0);
+      return NULL;
     }
-    //
-    // if (type.GetString() == "disconnect") {
-    //   send(socket, "disconnected from host", 22, 0);
-    //   return NULL;
-    // }
   }
   return NULL;
 }
