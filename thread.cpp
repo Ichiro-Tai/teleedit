@@ -32,22 +32,24 @@ string read_file(string filename, int bytes_to_read, int offset) {
     return "CANNOT OPEN FILE\n";
   }
 
-  file.seekg(offset, ios::end);
+  // file.seekg(offset, ios::end);
   std::string data(bytes_to_read, '\0');
   file.read(&data[0], bytes_to_read);
   return data;
 }
 
 string write_file(string filename, string data, int offset) {
-  fstream file;
+  ofstream file;
   file.open(filename.c_str(), ios::binary);
   if (!file) {
     return "CANNOT OPEN FILE\n";
   }
 
+  std::cout << std::to_string(offset) << std::endl;
+
   file.seekp(offset, ios::beg);
   file.write(data.c_str(), data.length());
-  return "BYTES SUCCESSFULLY WRITTEN: " + to_string(data.length()) + "\n";
+  return to_string(data.length());
 }
 
 string read_dir(string dir_name) {
@@ -69,22 +71,23 @@ string read_dir(string dir_name) {
 }
 
 string read_stat(string filename) {
+  std::cout << filename << "\n";
   struct stat file_stat;
-  int status = stat(filename, &file_stat);
+  int status = stat(filename.c_str(), &file_stat);
 
   if (status == -1) {
     return "CANNOT OPEN FILE\n";
   }
 
   string res = "";
-  res += "st_mode:" + file_stat->st_mode + ";";
-  res += "st_nlink:" + file_stat->st_nlink + ";";
-  res += "st_size:" + file_stat->st_size + ";";
-  res += "st_uid:" + file_stat->st_uid + ";";
-  res += "st_gid:" + file_stat->st_gid + ";";
-  res += "st_atime:" + file_stat->st_atime + ";";
-  res += "st_mtime:" + file_stat->st_mtime + ";";
-  res += "st_ctime:" + file_stat->st_ctime + ";";
+  res += "st_mode:" + std::to_string(file_stat.st_mode) + ";";
+  res += "st_nlink:" + std::to_string(file_stat.st_nlink) + ";";
+  res += "st_size:" + std::to_string(file_stat.st_size) + ";";
+  res += "st_uid:" + std::to_string(file_stat.st_uid) + ";";
+  res += "st_gid:" + std::to_string(file_stat.st_gid) + ";";
+  res += "st_atime:" + std::to_string(file_stat.st_atime) + ";";
+  res += "st_mtime:" + std::to_string(file_stat.st_mtime) + ";";
+  res += "st_ctime:" + std::to_string(file_stat.st_ctime) + ";";
 
   return res;
 }
@@ -131,4 +134,3 @@ void* handleConnection(void* sock) {
   }
   return NULL;
 }
-

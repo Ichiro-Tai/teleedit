@@ -19,16 +19,16 @@ class FS(LoggingMixIn, Operations):
     # Filesystem methods
     #--------------------------
     def getattr(self, path, fh):
-        if path.startswith('/'):
-            path = path[1:]
-
         cmd = {
             'type': 'getattr',
             'path': path
         }
         self.client.send_json_message(cmd)
         attr_str = self.client.listen()
-        return ast.literal_eval(attr_str)
+        attr = dict(x.split(':') for x in attr_str.split(';')[:-1])
+        res = dict((k, int(attr[k])) for k in attr if attr[k])
+        print(res)
+        return res
 
     def readdir(self, path, fh):
         cmd = {
@@ -40,7 +40,6 @@ class FS(LoggingMixIn, Operations):
         if retval.startswith('CANNOT OPEN DIR') or retval.startswith('EMPTY'):
             return []
         retval = retval.split('\n')[:-1]
-        # print(retval)
         return retval
 
     #--------------------------
@@ -53,18 +52,19 @@ class FS(LoggingMixIn, Operations):
             'size': size,
             'offset': offset
         }
-        client.send_json_message(cmd)
-        return client.listen(size + 50) # 50 for potential overhead
+        self.client.send_json_message(cmd)
+        buf = self.client.listen(size).encode('utf-8')
+        return buf
 
     def write(self, path, data, offset, fh):
         cmd = {
             'type': 'write',
             'path': path,
-            'data': data,
+            'data': data.decode('utf-8'),
             'offset': offset
         }
-        client.send_json_message(cmd)
-        return client.listen()
+        self.client.send_json_message(cmd)
+        return int(self.client.listen())
 
 if __name__ == '__main__':
     import tempfile
