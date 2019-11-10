@@ -14,7 +14,7 @@
 
 #define TIMEOUT 600
 using namespace std;
-static string home_dir = "root_dir"
+static string root_dir = "root_dir";
 
 string recv(int socket, int bytes) {
   string output(bytes, 0);
@@ -80,11 +80,6 @@ void* handleConnection(void* sock) {
     if (connection_type.compare("connect") == 0) {
       string greetings = "you are connected";
       send(socket, greetings.c_str(), greetings.length(), 0);
-    } else if (connection_type.compare("append") == 0) {
-      string to_append = json_msg["data"].GetString();
-      string path = json_msg["path"].GetString() + root_dir;
-      string feedback = append_to_current_file(path, to_append);
-      send(socket, feedback.c_str(), feedback.length(), 0);
     } else if (connection_type.compare("read") == 0){
       string path = json_msg["path"].GetString() + root_dir;
       size_t size = json_msg["size"].GetInt();
