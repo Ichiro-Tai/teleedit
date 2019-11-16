@@ -102,14 +102,15 @@ int main(){
     cout << "Listening" << endl;
 
     size_t count = 0;
-    // while (true) {
+    while (true) {
         //accept new client
-        // int client_sock = accept4(sock, NULL, NULL, SOCK_NONBLOCK);
-        int client_sock = accept4(sock, NULL, NULL, 0);
+        int client_sock = accept4(sock, NULL, NULL, SOCK_NONBLOCK);
         if (client_sock != -1){
             cout << "New client" << endl;
             socketList.push_back(client_sock);
+            break;
         }
+    }
     while (true) {
         //receive msg
         for (list<int>::iterator it = socketList.begin(); it != socketList.end();) {
