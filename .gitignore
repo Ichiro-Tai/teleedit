@@ -1,7 +1,6 @@
 test.txt
 *.pyc
 
-root_dir/
 host
 myenv/
 
