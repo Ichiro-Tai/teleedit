@@ -1,3 +1,4 @@
+#pragma once
 #include <iostream>
 #include <fstream>
 #include <cstdlib>
@@ -7,13 +8,14 @@
 #include <unistd.h>
 #include <string>
 #include <dirent.h>
-#include "thread.h"
 #include "include/rapidjson/document.h"
 #include "include/rapidjson/writer.h"
 #include "include/rapidjson/stringbuffer.h"
 
 #include <sys/types.h>
 #include <sys/stat.h>
+
+#include "queue.cpp"
 
 #define TIMEOUT 600
 using namespace std;
@@ -92,11 +94,12 @@ string read_stat(string filename) {
   return res;
 }
 
-void* handleConnection(void* sock) {
+void* handleConnection(void* taskQueuePtr) {
+  Queue* taskQueue = (Queue*) taskQueuePtr;
   while (true) {
-    int timer = time(0);
-    int socket = ((int)(long) sock);
-    string msg = recv(socket, 1024);
+    Task* next_task = taskQueue->pop();
+    int socket = next_task->sock;
+    string msg = next_task->msg;
     cout << "Raw msg: " << msg << endl;
     //decode to utf8
     rapidjson::Document json_msg;

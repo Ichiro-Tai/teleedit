@@ -19,6 +19,7 @@ class Client:
 
 
     def send_json_message(self, msg_dict):
+        print(msg_dict)
         cmd_json = json.dumps(msg_dict).encode('utf-8')
         self.sock.send(cmd_json)
 

@@ -4,6 +4,7 @@
 #include <vector>
 #include <pthread.h>
 #include <errno.h>
+#include <list>
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -14,48 +15,20 @@
 #include <arpa/inet.h>
 
 #include "thread.cpp"
-#include "queue.h"
+#include "queue.cpp"
 
 #define THREAD_POOL_SIZE 10
 
 using namespace std;
 
-typedef struct{
-    string msg;
-    int sock;
-} Task;
-
-typedef struct{
-    SockLinkedListNode *last, *next;
-    int sock;
-} SockLinkedListNode;
-
 /**
  *  Use taskQueue[threadNumber].pop() to get Task, where threadNumber is the
  *  parameter passed when creating a working thread.
  */
-static vector taskQueues = NULL;
+static vector<Queue*> taskQueues;
 
-static pthread_t *threadPool = NULL;
-static SockLinkedListNode *head = NULL;
-
-void addSocket(int sock){
-    SockLinkedListNode *node = malloc(sizeof(SockLinkedListNode));
-    node->sock = sock;
-    node->last = NULL;
-    node->next = head;
-    head = node;
-}
-
-void deleteSocket(SockLinkedListNode *node){
-    if(node == head){
-        head = node->next;
-    } else {
-        if(node->last) node->last->next = node->next;
-        if(node->next) node->next->last = node->last;
-    }
-    free(node);
-}
+static pthread_t threadPool[THREAD_POOL_SIZE];
+static list<int> socketList;
 
 void printHostName(){
     char buffer[256];
@@ -85,7 +58,7 @@ void printLocalIpAddr(){
                 break;
             }
             case AF_INET6:
-	    {
+            {
                 struct sockaddr_in6 *s6 = (struct sockaddr_in6 *)ifa->ifa_addr;
                 in_addr = &s6->sin6_addr;
                 break;
@@ -105,51 +78,54 @@ void printLocalIpAddr(){
 int main(){
     printHostName();
     printLocalIpAddr();
-    
+
     for(size_t i = 0; i < THREAD_POOL_SIZE; i++){
-        taskQueues.push_back(Queue(-1)); 
+        Queue *q = new Queue(-1);
+        taskQueues.push_back(q);
     }
-    pthread_t * threads = malloc(sizeof(pthread_t) * THREAD_POOL_SIZE);
     for(size_t i = 0; i < THREAD_POOL_SIZE; i++){
-        pthread_create(threads + i, NULL, &handleConnection, (void*)i);
+        pthread_create(threadPool + i, NULL,
+              &handleConnection, (void*)taskQueues[i]);
     }
 
     struct addrinfo addr, *result;
-	memset(&addr, 0, sizeof(struct addrinfo));
+    memset(&addr, 0, sizeof(struct addrinfo));
     addr.ai_family = AF_INET;
     addr.ai_socktype = SOCK_STREAM;
     addr.ai_flags = AI_PASSIVE;
     getaddrinfo(NULL, "5005", &addr, &result);
     int sock = socket(AF_INET, SOCK_STREAM, 0);
+    int optval = 1;
+    setsockopt(sock, SOL_SOCKET, SO_REUSEPORT, &optval, sizeof(optval));
     bind(sock, result->ai_addr, result->ai_addrlen);
     listen(sock, 20);
     cout << "Listening" << endl;
 
-    SockLinkedListNode *p, *p_next;
     size_t count = 0;
-    while(true){
+    // while (true) {
         //accept new client
-        int client_sock = accept4(sock, NULL, NULL, SOCK_NONBLOCK);
+        // int client_sock = accept4(sock, NULL, NULL, SOCK_NONBLOCK);
+        int client_sock = accept4(sock, NULL, NULL, 0);
         if (client_sock != -1){
             cout << "New client" << endl;
-            addSocket(client_sock);
+            socketList.push_back(client_sock);
         }
+    while (true) {
         //receive msg
-        p = head;
-        while(p){
-            p_next = p->next;
-            string msg(1024, 0);
-            ssize_t bytesRead = recv(socket, &msg[0], 1024-1, MSG_DONTWAIT);
-            if(bytesRead > 0){
-                Task t = malloc(sizeof(Task));
-                t->sock = p->sock;
-                t->msg = msg;
-                taskQueues[count].push(t);
-                count = (count + 1) % THREAD_POOL_SIZE;
-            } else if(bytesRead == -1 && errno == ENOTSOCK){
-                deleteSocket(p);
-            }
-            p = p_next;
+        for (list<int>::iterator it = socketList.begin(); it != socketList.end();) {
+          string msg(1024, 0);
+          // ssize_t bytesRead = recv(*it, &msg[0], 1024-1, MSG_DONTWAIT);
+          ssize_t bytesRead = recv(*it, &msg[0], 1024-1, 0);
+          if (bytesRead > 0){
+              cout<<"Msg received: "<<msg<<endl;
+              Task *t = new Task{*it, msg};
+              taskQueues[count]->push(t);
+              count = (count + 1) % THREAD_POOL_SIZE;
+
+              ++it;
+          } else if (bytesRead == 0){// && errno == ENOTSOCK){
+              //it = socketList.erase(it);
+          }
         }
     }
 }
