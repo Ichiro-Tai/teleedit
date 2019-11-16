@@ -13,6 +13,7 @@
 #include <net/if.h>
 #include <ifaddrs.h>
 #include <arpa/inet.h>
+#include <fcntl.h>
 
 #include "thread.cpp"
 #include "queue.cpp"
@@ -94,7 +95,7 @@ int main(){
     addr.ai_socktype = SOCK_STREAM;
     addr.ai_flags = AI_PASSIVE;
     getaddrinfo(NULL, "5005", &addr, &result);
-    int sock = socket(AF_INET, SOCK_STREAM, 0);
+    int sock = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
     int optval = 1;
     setsockopt(sock, SOL_SOCKET, SO_REUSEPORT, &optval, sizeof(optval));
     bind(sock, result->ai_addr, result->ai_addrlen);
@@ -102,30 +103,29 @@ int main(){
     cout << "Listening" << endl;
 
     size_t count = 0;
-    // while (true) {
+    while (true) {
         //accept new client
-        // int client_sock = accept4(sock, NULL, NULL, SOCK_NONBLOCK);
-        int client_sock = accept4(sock, NULL, NULL, 0);
+        int client_sock = accept4(sock, NULL, NULL, SOCK_NONBLOCK);
         if (client_sock != -1){
             cout << "New client" << endl;
             socketList.push_back(client_sock);
         }
-    while (true) {
         //receive msg
         for (list<int>::iterator it = socketList.begin(); it != socketList.end();) {
-          string msg(1024, 0);
-          // ssize_t bytesRead = recv(*it, &msg[0], 1024-1, MSG_DONTWAIT);
-          ssize_t bytesRead = recv(*it, &msg[0], 1024-1, 0);
-          if (bytesRead > 0){
-              cout<<"Msg received: "<<msg<<endl;
-              Task *t = new Task{*it, msg};
-              taskQueues[count]->push(t);
-              count = (count + 1) % THREAD_POOL_SIZE;
-
-              ++it;
-          } else if (bytesRead == 0){// && errno == ENOTSOCK){
-              //it = socketList.erase(it);
-          }
+            string msg(1024, 0);
+            ssize_t bytesRead = recv(*it, &msg[0], 1024-1, MSG_DONTWAIT);
+            if(bytesRead < 0 && (errno == ENOTSOCK || errno == ENOTCONN 
+                    || errno == EBADF)){
+                it = socketList.erase(it);
+            } else {
+                if (bytesRead > 0){
+                    cout<<"Msg received: "<<msg<<endl;
+                    Task *t = new Task{*it, msg};
+                    taskQueues[count]->push(t);
+                    count = (count + 1) % THREAD_POOL_SIZE;
+                }
+		it++;
+            }
         }
     }
 }
