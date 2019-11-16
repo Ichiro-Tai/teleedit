@@ -1,0 +1,22 @@
+Metadata-Version: 2.1
+Name: gunpowder
+Version: 0.3.1
+Summary: Data loading DAG for Greentea.
+Home-page: https://github.com/funkey/gunpowder
+Author: Jan Funke
+Author-email: jfunke@iri.upc.edu
+License: MIT
+Platform: UNKNOWN
+Requires-Dist: numpy
+Requires-Dist: scipy
+Requires-Dist: h5py
+Requires-Dist: scikit-image
+Requires-Dist: requests
+Provides-Extra: full
+Requires-Dist: tensorflow ; extra == 'full'
+Provides-Extra: tensorflow
+Requires-Dist: tensorflow ; extra == 'tensorflow'
+
+UNKNOWN
+
+

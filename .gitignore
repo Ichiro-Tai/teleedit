@@ -1,4 +1,6 @@
 test.txt
 *.pyc
 
-myenv/*
+root_dir/
+host
+
