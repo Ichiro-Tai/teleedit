@@ -13,6 +13,7 @@
 #include <net/if.h>
 #include <ifaddrs.h>
 #include <arpa/inet.h>
+#include <fcntl.h>
 
 #include "thread.cpp"
 #include "queue.cpp"
@@ -21,13 +22,10 @@
 
 using namespace std;
 
-/**
- *  Use taskQueue[threadNumber].pop() to get Task, where threadNumber is the
- *  parameter passed when creating a working thread.
- */
 static vector<Queue*> taskQueues;
 
 static pthread_t threadPool[THREAD_POOL_SIZE];
+
 static list<int> socketList;
 
 void printHostName(){
@@ -94,7 +92,9 @@ int main(){
     addr.ai_socktype = SOCK_STREAM;
     addr.ai_flags = AI_PASSIVE;
     getaddrinfo(NULL, "5005", &addr, &result);
+    
     int sock = socket(AF_INET, SOCK_STREAM, 0);
+    fcntl(sock, F_SETFL, O_NONBLOCK);
     int optval = 1;
     setsockopt(sock, SOL_SOCKET, SO_REUSEPORT, &optval, sizeof(optval));
     bind(sock, result->ai_addr, result->ai_addrlen);
