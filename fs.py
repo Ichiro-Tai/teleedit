@@ -2,6 +2,7 @@ import json
 import ast
 from time import time
 from stat import S_IFDIR, S_IFREG
+from errno import ENOENT
 
 from fuse import FUSE, FuseOSError, Operations, LoggingMixIn
 
@@ -28,6 +29,8 @@ class FS(LoggingMixIn, Operations):
         attr = dict(x.split(':') for x in attr_str.split(';')[:-1])
         res = dict((k, int(attr[k])) for k in attr if attr[k])
         print(res)
+        if not res:
+            raise FuseOSError(ENOENT)
         return res
 
     def readdir(self, path, fh):
@@ -45,6 +48,40 @@ class FS(LoggingMixIn, Operations):
     #--------------------------
     # File methods
     #--------------------------
+    def create(self, path, mode):
+        cmd = {
+            'type': 'create',
+            'path': path,
+            'mode': mode
+        }
+        self.client.send_json_message(cmd)
+        return 0
+
+    def chown(self, path, uid, gid):
+        cmd = {
+            'type': 'chown',
+            'path': path,
+            'uid': uid,
+            'gid': gid
+        }
+        self.client.send_json_message(cmd)
+
+    def chmod(self, path, mode):
+        cmd = {
+            'type': 'chmod',
+            'path': path,
+            'mode': mode
+        }
+        self.client.send_json_message(cmd)
+
+    def truncate(self, path, length, fh=None):
+        cmd = {
+            'type': 'truncate',
+            'path': path,
+            'length': length
+        }
+        self.client.send_json_message(cmd)
+
     def read(self, path, size, offset, fh):
         cmd = {
             'type': 'read',

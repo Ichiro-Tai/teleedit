@@ -73,7 +73,6 @@ string read_dir(string dir_name) {
 }
 
 string read_stat(string filename) {
-  std::cout << filename << "\n";
   struct stat file_stat;
   int status = stat(filename.c_str(), &file_stat);
 
@@ -110,29 +109,61 @@ void* handleConnection(void* taskQueuePtr) {
     if (connection_type.compare("connect") == 0) {
       string greetings = "you are connected";
       send(socket, greetings.c_str(), greetings.length(), 0);
+
     } else if (connection_type.compare("read") == 0){
       string path = root_dir + json_msg["path"].GetString();
       size_t size = json_msg["size"].GetInt();
       size_t offset = json_msg["offset"].GetInt();
       string feedback = read_file(path, size, offset);
       send(socket, feedback.c_str(), feedback.length(), 0);
+
     } else if (connection_type.compare("write") == 0){
       string path = root_dir + json_msg["path"].GetString();
       string data = json_msg["data"].GetString();
       size_t offset = json_msg["offset"].GetInt();
       string feedback = write_file(path, data, offset);
       send(socket, feedback.c_str(), feedback.length(), 0);
+
     } else if (connection_type.compare("readdir") == 0){
       string path = root_dir + json_msg["path"].GetString();
       string feedback = read_dir(path);
       send(socket, feedback.c_str(), feedback.length(), 0);
+
     } else if (connection_type.compare("disconnect") == 0) {
       send(socket, "disconnected from host", 22, 0);
       return NULL;
+
     } else if (connection_type.compare("getattr") == 0) {
       string path  = root_dir + json_msg["path"].GetString();
       string feedback = read_stat(path);
       send(socket, feedback.c_str(), feedback.length(), 0);
+
+    } else if (connection_type.compare("truncate") == 0) {
+      string path = root_dir + json_msg["path"].GetString();
+      size_t length = json_msg["length"].GetInt();
+      string feedback = to_string(truncate(path.c_str(), length));
+      send(socket, feedback.c_str(), feedback.length(), 0);
+
+    } else if (connection_type.compare("chmod") == 0) {
+      string path = root_dir + json_msg["path"].GetString();
+      mode_t mode = json_msg["mode"].GetInt();
+      string feedback = to_string(chmod(path.c_str(), mode));
+      send(socket, feedback.c_str(), feedback.length(), 0);
+
+    } else if (connection_type.compare("chown") == 0) {
+      string path = root_dir + json_msg["path"].GetString();
+      uid_t uid = json_msg["uid"].GetInt();
+      gid_t gid = json_msg["gid"].GetInt();
+      string feedback = to_string(chown(path.c_str(), uid, gid));
+      send(socket, feedback.c_str(), feedback.length(), 0);
+
+    } else if (connection_type.compare("create") == 0) {
+      string path = root_dir + json_msg["path"].GetString();
+      mode_t mode = json_msg["mode"].GetInt();
+      ofstream file;
+      file.open(path.c_str(), ios::binary);
+      file.close();
+      chmod(path.c_str(), mode);
     }
   }
   return NULL;
