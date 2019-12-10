@@ -15,14 +15,26 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/epoll.h>
+
+#include <mutex>              // std::mutex, std::unique_lock
+#include <condition_variable> // std::condition_variable
+
 
 #include "queue.cpp"
 
 #define TIMEOUT 600
 using namespace std;
 static string root_dir = "root_dir";
-static std::queue<int> client_fd_queue;
-static int epoll_fd;
+
+std::unordered_map<pair<std::string, int>, bool> file_segment_usage_map;
+std::unordered_set<std::string> file_usage_set;
+
+typedef struct thread_starter_kit {
+  Queue* taskQueue;
+  epoll_event* ev;
+  int epoll_fd;
+} thread_starter_kit;
 
 string recv(int socket, int bytes) {
   string output(bytes, 0);
@@ -96,8 +108,11 @@ string read_stat(string filename) {
   return res;
 }
 
-void* handleConnection(void* taskQueuePtr) {
-  Queue* taskQueue = (Queue*) taskQueuePtr;
+void* handleConnection(void* kit) {
+  thread_starter_kit* items = (thread_starter_kit*) kit;
+  Queue* taskQueue = (Queue*) (items->taskQueuePtr);
+  epoll_event* ev = (epoll_event*) (items->evptr);
+  int epoll_fd = (int) (items->epoll_fd);
   while (true) {
     Task* next_task = taskQueue->pop();
     int socket = next_task->sock;
@@ -168,6 +183,11 @@ void* handleConnection(void* taskQueuePtr) {
       file.close();
       chmod(path.c_str(), mode);
     }
+    
+    //add to epoll
+    ev->events = EPOLLIN | EPOLLET;
+    ev->data.fd = new_client;
+    epoll_ctl(epoll_fd, EPOLL_CTL_ADD, socket, ev);
   }
   return NULL;
 }
