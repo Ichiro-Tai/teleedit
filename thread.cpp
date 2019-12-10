@@ -26,15 +26,18 @@
 #define TIMEOUT 600
 using namespace std;
 static string root_dir = "root_dir";
-static pthread_mutex_t update_mutex = PTHREAD_MUTEX_INITIALIZER;
-static pthread_cond_t update_cv = PTHREAD_COND_INITIALIZER;
+static std::queue<int> fd_queue;
 
-std::unordered_map<pair<std::string, int>, bool> file_segment_usage_map;
-std::unordered_map<std::string, bool> file_usage_set;
+static pthread_mutex_t file_segment_mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t file_segment_cv = PTHREAD_COND_INITIALIZER;
+std::unordered_map<pair<std::string, int>, int> file_segment_usage_map;
+
+static pthread_mutex_t file_usage_mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t file_segment_cv = PTHREAD_COND_INITIALIZER;
+std::unordered_map<std::string, int> file_usage_map;
 
 typedef struct thread_starter_kit {
   Queue* taskQueue;
-  epoll_event* ev;
   int epoll_fd;
 } thread_starter_kit;
 
@@ -44,31 +47,80 @@ string recv(int socket, int bytes) {
   return output;
 }
 
+void file_usage_map_start_read(string filename) {
+  pthread_mutex_lock(&file_usage_mutex);
+  if (file_usage_map.find(filename) != file_usage_map.end() && file_usage_map[filename] == -1) {
+    pthread_cond_wait(&file_usage_cv, &file_usage_mutex);
+  }
+  if (file_usage_map.find(filename) != file_usage_map.end()) {
+    file_usage_map[filename]++;
+  } else {
+    file_usage_map[filename] = 1;
+  }
+  pthread_mutex_unlock(&file_usage_mutex);
+}
+
+void file_usage_map_finish_read(string filename) {
+  pthread_mutex_lock(&file_usage_mutex);
+  file_usage_map[filename]--;
+  if (file_usage_map[filename] == 0) {
+    file_usage_map.erase(filename);
+  }
+  pthread_cond_broadcast(&file_usage_cv);
+  pthread_mutex_unlock(&file_usage_mutex);
+}
+
+void file_usage_map_start_write(string filename) {
+  pthread_mutex_lock(&file_usage_mutex);
+  if (file_usage_map.find(filename) != file_usage_map.end()) {
+    pthread_cond_wait(&file_usage_cv, &file_usage_mutex);
+  }
+  file_usage_map[filename] = -1;
+  pthread_mutex_unlock(&file_usage_mutex);
+}
+
+void file_usage_map_finish_write(string filename) {
+  pthread_mutex_lock(&file_usage_mutex);
+  file_usage_map.erase(filename);
+  pthread_cond_broadcast(&file_usage_cv);
+  pthread_mutex_unlock(&file_usage_mutex);
+}
+
 string read_file(string filename, int bytes_to_read, int offset) {
   ifstream file;
+  file_usage_map_start_read(filename);
+
   file.open(filename.c_str(), ios::binary);
   if (!file) {
+    file_usage_map_finish_read(filename);
     return "CANNOT OPEN FILE\n";
   }
 
   // file.seekg(offset, ios::end);
   std::string data(bytes_to_read, '\0');
   file.read(&data[0], bytes_to_read);
+
+  file_usage_map_finish_read(filename);
+
   return data;
 }
 
 string write_file(string filename, string data, int offset) {
   ofstream file;
+  file_usage_map_start_read(filename);
+
   file.open(filename.c_str(), ios::binary);
   if (!file) {
+    file_usage_map_finish_read(filename);
     return "CANNOT OPEN FILE\n";
   }
 
   std::cout << std::to_string(offset) << std::endl;
 
-  int string_length = 
   file.seekp(offset, ios::beg);
   file.write(data.c_str(), data.length());
+
+  file_usage_map_finish_read(filename);
   return to_string(data.length());
 }
 
@@ -92,9 +144,12 @@ string read_dir(string dir_name) {
 
 string read_stat(string filename) {
   struct stat file_stat;
+  file_usage_map_start_read(filename);
+
   int status = stat(filename.c_str(), &file_stat);
 
   if (status == -1) {
+    file_usage_map_finish_read(filename);
     return "CANNOT OPEN FILE\n";
   }
 
@@ -108,6 +163,7 @@ string read_stat(string filename) {
   res += "st_mtime:" + std::to_string(file_stat.st_mtime) + ";";
   res += "st_ctime:" + std::to_string(file_stat.st_ctime) + ";";
 
+  file_usage_map_finish_read(filename);
   return res;
 }
 
@@ -188,8 +244,9 @@ void* handleConnection(void* kit) {
     }
     
     //add to epoll
+    struct epoll_event;
     ev->events = EPOLLIN | EPOLLET;
-    ev->data.fd = new_client;
+    ev->data.fd = socket;
     epoll_ctl(epoll_fd, EPOLL_CTL_ADD, socket, ev);
   }
   return NULL;
