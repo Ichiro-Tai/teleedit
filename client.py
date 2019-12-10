@@ -17,6 +17,8 @@ class Client:
         self.send_connect_command()
         print(self.listen())
 
+    def send_str_msg(self, msg_str):
+        self.sock.send(msg_str)
 
     def send_json_message(self, msg_dict):
         print(msg_dict)
