@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <string>
 #include <dirent.h>
+#include <queue>
 #include "include/rapidjson/document.h"
 #include "include/rapidjson/writer.h"
 #include "include/rapidjson/stringbuffer.h"
@@ -20,6 +21,8 @@
 #define TIMEOUT 600
 using namespace std;
 static string root_dir = "root_dir";
+static std::queue<int> client_fd_queue;
+static int epoll_fd;
 
 string recv(int socket, int bytes) {
   string output(bytes, 0);
