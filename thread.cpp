@@ -26,11 +26,11 @@
 #define TIMEOUT 600
 using namespace std;
 static string root_dir = "root_dir";
-static std::queue<int> fd_queue;
 
-static pthread_mutex_t file_segment_mutex = PTHREAD_MUTEX_INITIALIZER;
+std::mutex file_segment_mutex;
+std::condition_variable file_segment_cv;
 static pthread_cond_t file_segment_cv = PTHREAD_COND_INITIALIZER;
-std::unordered_map<pair<std::string, int>, int> file_segment_usage_map;
+std::unordered_map<pair<std::string, int>, int> file_segment_map;
 
 static pthread_mutex_t file_usage_mutex = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t file_segment_cv = PTHREAD_COND_INITIALIZER;
@@ -48,6 +48,45 @@ string recv(int socket, int bytes) {
 }
 
 void file_usage_map_start_read(string filename) {
+  pthread_mutex_lock(&file_usage_mutex);
+  if (file_usage_map.find(filename) != file_usage_map.end() && file_usage_map[filename] == -1) {
+    pthread_cond_wait(&file_usage_cv, &file_usage_mutex);
+  }
+  if (file_usage_map.find(filename) != file_usage_map.end()) {
+    file_usage_map[filename]++;
+  } else {
+    file_usage_map[filename] = 1;
+  }
+  pthread_mutex_unlock(&file_usage_mutex);
+}
+
+void file_usage_map_finish_read(string filename) {
+  pthread_mutex_lock(&file_usage_mutex);
+  file_usage_map[filename]--;
+  if (file_usage_map[filename] == 0) {
+    file_usage_map.erase(filename);
+  }
+  pthread_cond_broadcast(&file_usage_cv);
+  pthread_mutex_unlock(&file_usage_mutex);
+}
+
+void file_usage_map_start_write(string filename) {
+  pthread_mutex_lock(&file_usage_mutex);
+  if (file_usage_map.find(filename) != file_usage_map.end()) {
+    pthread_cond_wait(&file_usage_cv, &file_usage_mutex);
+  }
+  file_usage_map[filename] = -1;
+  pthread_mutex_unlock(&file_usage_mutex);
+}
+
+void file_usage_map_finish_write(string filename) {
+  pthread_mutex_lock(&file_usage_mutex);
+  file_usage_map.erase(filename);
+  pthread_cond_broadcast(&file_usage_cv);
+  pthread_mutex_unlock(&file_usage_mutex);
+}
+
+void file_segment_map_start_read(string filename, int segment) {
   pthread_mutex_lock(&file_usage_mutex);
   if (file_usage_map.find(filename) != file_usage_map.end() && file_usage_map[filename] == -1) {
     pthread_cond_wait(&file_usage_cv, &file_usage_mutex);
