@@ -26,9 +26,11 @@
 #define TIMEOUT 600
 using namespace std;
 static string root_dir = "root_dir";
+static pthread_mutex_t update_mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t update_cv = PTHREAD_COND_INITIALIZER;
 
 std::unordered_map<pair<std::string, int>, bool> file_segment_usage_map;
-std::unordered_set<std::string> file_usage_set;
+std::unordered_map<std::string, bool> file_usage_set;
 
 typedef struct thread_starter_kit {
   Queue* taskQueue;
@@ -64,6 +66,7 @@ string write_file(string filename, string data, int offset) {
 
   std::cout << std::to_string(offset) << std::endl;
 
+  int string_length = 
   file.seekp(offset, ios::beg);
   file.write(data.c_str(), data.length());
   return to_string(data.length());
