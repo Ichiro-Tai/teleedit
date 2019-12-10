@@ -34,7 +34,6 @@ std::unordered_map<std::string, bool> file_usage_set;
 
 typedef struct thread_starter_kit {
   Queue* taskQueue;
-  epoll_event* ev;
   int epoll_fd;
 } thread_starter_kit;
 

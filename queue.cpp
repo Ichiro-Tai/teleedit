@@ -5,7 +5,6 @@
 
 struct Task {
     int sock;
-    std::string msg;
 };
 
 typedef struct queue_node {
