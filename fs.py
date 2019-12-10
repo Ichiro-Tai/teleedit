@@ -20,11 +20,9 @@ class FS(LoggingMixIn, Operations):
     # Filesystem methods
     #--------------------------
     def getattr(self, path, fh):
-        cmd = {
-            'type': 'getattr',
-            'path': path
-        }
-        self.client.send_json_message(cmd)
+        path = path.encode('utf-8')
+        cmd = 'getattr'.ljust(8) + str(len(path)).ljust(16) + path
+        self.client.send_str_msg(cmd)
         attr_str = self.client.listen()
         attr = dict(x.split(':') for x in attr_str.split(';')[:-1])
         res = dict((k, int(attr[k])) for k in attr if attr[k])
@@ -34,11 +32,9 @@ class FS(LoggingMixIn, Operations):
         return res
 
     def readdir(self, path, fh):
-        cmd = {
-            'type' : 'readdir',
-            'path' : path
-        }
-        self.client.send_json_message(cmd)
+        path = path.encode('utf-8')
+        cmd = 'readdir'.ljust(8) + str(len(path)).ljust(16) + path
+        self.client.send_str_msg(cmd)
         retval = self.client.listen()
         if retval.startswith('CANNOT OPEN DIR') or retval.startswith('EMPTY'):
             return []
@@ -49,58 +45,38 @@ class FS(LoggingMixIn, Operations):
     # File methods
     #--------------------------
     def create(self, path, mode):
-        cmd = {
-            'type': 'create',
-            'path': path,
-            'mode': mode
-        }
-        self.client.send_json_message(cmd)
+        path = path.encode('utf-8')
+        cmd = 'create'.ljust(8) + str(mode).ljust(16) + str(len(path)).ljust(16) + path
+        self.client.send_str_msg(cmd)
         return 0
 
     def chown(self, path, uid, gid):
-        cmd = {
-            'type': 'chown',
-            'path': path,
-            'uid': uid,
-            'gid': gid
-        }
-        self.client.send_json_message(cmd)
+        path = path.encode('utf-8')
+        cmd = 'chown'.ljust(8) + str(uid).ljust(16) + str(gid).ljust(16) + str(len(path)).ljust(16) + path
+        self.client.send_str_msg(cmd)
 
     def chmod(self, path, mode):
-        cmd = {
-            'type': 'chmod',
-            'path': path,
-            'mode': mode
-        }
-        self.client.send_json_message(cmd)
+        path = path.encode('utf-8')
+        cmd = 'chmod'.ljust(8) + str(mode).ljust(16) + str(len(path)).ljust(16) + path
+        self.client.send_str_msg(cmd)
 
     def truncate(self, path, length, fh=None):
-        cmd = {
-            'type': 'truncate',
-            'path': path,
-            'length': length
-        }
-        self.client.send_json_message(cmd)
+        path = path.encode('utf-8')
+        cmd = 'truncate'.ljust(8) + str(length).ljust(16) + str(len(path)).ljust(16) + path
+        self.client.send_str_msg(cmd)
 
     def read(self, path, size, offset, fh):
-        cmd = {
-            'type': 'read',
-            'path': path,
-            'size': size,
-            'offset': offset
-        }
-        self.client.send_json_message(cmd)
+        path = path.encode('utf-8')
+        cmd = 'read'.ljust(8) + str(size).ljust(16) + str(offset).ljust(16) + str(len(path)).ljust(16) + path
+        self.client.send_str_msg(cmd)
         buf = self.client.listen(size).encode('utf-8')
         return buf
 
     def write(self, path, data, offset, fh):
-        cmd = {
-            'type': 'write',
-            'path': path,
-            'data': data.decode('utf-8'),
-            'offset': offset
-        }
-        self.client.send_json_message(cmd)
+        path = path.encode('utf-8')
+        #data = data.decode('utf-8').encode('utf-8')
+        cmd = 'write'.ljust(8) + str(offset).ljust(16) + str(len(path)).ljust(16) + str(len(data)).ljust(16) + path + data
+        self.client.send_str_msg(cmd)
         return int(self.client.listen())
 
 if __name__ == '__main__':
