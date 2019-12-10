@@ -8,6 +8,7 @@
 
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/epoll.h>
 #include <netinet/in.h>
 #include <netdb.h>
 #include <net/if.h>
@@ -19,6 +20,7 @@
 #include "queue.cpp"
 
 #define THREAD_POOL_SIZE 10
+#define MAX_CLIENTS (128)
 
 using namespace std;
 
@@ -26,10 +28,19 @@ using namespace std;
  *  Use taskQueue[threadNumber].pop() to get Task, where threadNumber is the
  *  parameter passed when creating a working thread.
  */
-static vector<Queue*> taskQueues;
+
+static int exit_server = 0;
+
+static int server_socket;
 
 static pthread_t threadPool[THREAD_POOL_SIZE];
+
 static list<int> socketList;
+
+
+
+static Queue *task_queue;
+static int epoll_fd;
 
 void printHostName(){
     char buffer[256];
@@ -76,56 +87,77 @@ void printLocalIpAddr(){
     freeifaddrs(myaddrs);
 }
 
+void signal_int(int signum){
+    exit_server = 1;
+}
+
+void cleanup(){
+    shutdown(server_socket, SHUT_RDWR);
+    close(server_socket);
+}
+
 int main(){
+    //Print host info
     printHostName();
     printLocalIpAddr();
-
-    for(size_t i = 0; i < THREAD_POOL_SIZE; i++){
-        Queue *q = new Queue(-1);
-        taskQueues.push_back(q);
-    }
-    for(size_t i = 0; i < THREAD_POOL_SIZE; i++){
-        pthread_create(threadPool + i, NULL,
-              &handleConnection, (void*)taskQueues[i]);
-    }
-
+    //Init server socket
     struct addrinfo addr, *result;
     memset(&addr, 0, sizeof(struct addrinfo));
     addr.ai_family = AF_INET;
     addr.ai_socktype = SOCK_STREAM;
     addr.ai_flags = AI_PASSIVE;
     getaddrinfo(NULL, "5005", &addr, &result);
-    int sock = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
+    server_socket = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
     int optval = 1;
-    setsockopt(sock, SOL_SOCKET, SO_REUSEPORT, &optval, sizeof(optval));
-    bind(sock, result->ai_addr, result->ai_addrlen);
-    listen(sock, 20);
-    cout << "Listening" << endl;
-
-    size_t count = 0;
-    while (true) {
-        //accept new client
-        int client_sock = accept4(sock, NULL, NULL, 0);
-        if (client_sock != -1){
-            cout << "New client" << endl;
-            socketList.push_back(client_sock);
-        }
-        //receive msg
-        for (list<int>::iterator it = socketList.begin(); it != socketList.end();) {
-            string msg(1024, 0);
-            ssize_t bytesRead = recv(*it, &msg[0], 1024-1, MSG_DONTWAIT);
-            if(bytesRead < 0 && (errno == ENOTSOCK || errno == ENOTCONN 
-                    || errno == EBADF)){
-                it = socketList.erase(it);
-            } else {
-                if (bytesRead > 0){
-                    cout<<"Msg received: "<<msg<<endl;
-                    Task *t = new Task{*it, msg};
-                    taskQueues[count]->push(t);
-                    count = (count + 1) % THREAD_POOL_SIZE;
-                }
-		it++;
+    setsockopt(server_socket, SOL_SOCKET, SO_REUSEPORT, &optval, sizeof(optval));
+    bind(server_socket, result->ai_addr, result->ai_addrlen);
+    listen(server_socket, MAX_CLIENTS);
+    cout << "Listening" << endl;   
+    //Epoll
+    epoll_fd = epoll_create1(0);
+    if(epoll_fd == -1){perror("epoll_create1"); exit(-1);}
+    struct epoll_event ev;
+    memset(&ev, 0, sizeof(struct epoll_event));
+    ev.events = EPOLLIN;
+    ev.data.fd = server_socket;
+    if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, server_socket, &ev) == -1) {
+        perror("epoll_ctl: server_socket");
+        exit(-1);
+    }
+    struct epoll_event *events = calloc(MAX_CLIENTS, sizeof(struct epoll_event));
+    //Init working threads
+    task_queue = new Queue(-1);
+    thread_starter_kit work_thread_param;
+    work_thread_param.taskQueue = task_queue;
+    work_thread_param.epoll_fd = epoll_fd;
+    for(size_t i = 0; i < THREAD_POOL_SIZE; i++){
+        pthread_create(threadPool + i, NULL,
+              &handleConnection, (void*)&work_thread_param);
+    }
+    while (exit_server == 0) {
+        int nFds = epoll_wait(epollFd, events, MAX_CLIENTS, -1);
+        for (int i = 0; i < nFds; i++){
+            if(exit_server) break;
+            int sock = events[i].data.fd;
+            if(sock == server_sock){ //accept new client
+                //accept
+                socklen_t addrlen = sizeof(struct sockaddr);
+                struct sockaddr addr;
+                memset(&addr, 0, addrlen);
+                int client_sock = accept(server_sock, &addr, &addrlen);
+                int flags = fcntl(client_sock, F_GETFL, 0);
+                fcntl(client_sock, F_SETFL, flags | O_NONBLOCK);
+                //epoll
+                memset(&ev, 0, sizeof(struct epoll_event));
+                ev.events = EPOLLIN;
+                ev.data.fd = client_sock;
+                epoll_ctl(epollFd, EPOLL_CTL_ADD, client_sock, &ev);
+            } else { // client has new message
+                epoll_ctl(epoll_fd, EPOLL_CTL_DEL, sock, NULL);
+                Task *t = new Task{sock};
+                task_queue->push(t);
             }
         }
     }
+    cleanup();
 }

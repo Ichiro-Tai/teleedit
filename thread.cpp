@@ -29,17 +29,16 @@ static string root_dir = "root_dir";
 
 std::mutex file_segment_mutex;
 std::condition_variable file_segment_cv;
-static pthread_cond_t file_segment_cv = PTHREAD_COND_INITIALIZER;
 std::unordered_map<pair<std::string, int>, int> file_segment_map;
 
-static pthread_mutex_t file_usage_mutex = PTHREAD_MUTEX_INITIALIZER;
-static pthread_cond_t file_segment_cv = PTHREAD_COND_INITIALIZER;
+std::mutex file_usage_mutex;
+std::condition_variable file_usage_cv;
 std::unordered_map<std::string, int> file_usage_map;
 
-typedef struct thread_starter_kit {
+struct thread_starter_kit {
   Queue* taskQueue;
   int epoll_fd;
-} thread_starter_kit;
+};
 
 string recv(int socket, int bytes) {
   string output(bytes, 0);
@@ -47,88 +46,74 @@ string recv(int socket, int bytes) {
   return output;
 }
 
+//map helper functions
 void file_usage_map_start_read(string filename) {
-  pthread_mutex_lock(&file_usage_mutex);
-  if (file_usage_map.find(filename) != file_usage_map.end() && file_usage_map[filename] == -1) {
-    pthread_cond_wait(&file_usage_cv, &file_usage_mutex);
-  }
-  if (file_usage_map.find(filename) != file_usage_map.end()) {
-    file_usage_map[filename]++;
-  } else {
-    file_usage_map[filename] = 1;
-  }
-  pthread_mutex_unlock(&file_usage_mutex);
+  std::unique_lock<std::mutex> lk(file_usage_mutex);
+  cv.wait(file_usage_cv, []{return !(file_usage_map.find(filename) != file_usage_map.end() && file_usage_map[filename] == -1);});
+  file_usage_map[filename]++;
+  file_usage_mutex.unlock();
 }
 
 void file_usage_map_finish_read(string filename) {
-  pthread_mutex_lock(&file_usage_mutex);
+  std::unique_lock<std::mutex> lk(file_usage_mutex);
   file_usage_map[filename]--;
   if (file_usage_map[filename] == 0) {
     file_usage_map.erase(filename);
   }
-  pthread_cond_broadcast(&file_usage_cv);
-  pthread_mutex_unlock(&file_usage_mutex);
+  file_usage_mutex.unlock();
+  file_usage_cv.notify_all();
 }
 
 void file_usage_map_start_write(string filename) {
-  pthread_mutex_lock(&file_usage_mutex);
-  if (file_usage_map.find(filename) != file_usage_map.end()) {
-    pthread_cond_wait(&file_usage_cv, &file_usage_mutex);
-  }
+  std::unique_lock<std::mutex> lk(file_usage_mutex);
+  cv.wait(file_usage_cv, []{return (file_usage_map.find(filename) == file_usage_map.end());});
   file_usage_map[filename] = -1;
-  pthread_mutex_unlock(&file_usage_mutex);
+  file_usage_mutex.unlock();
 }
 
 void file_usage_map_finish_write(string filename) {
-  pthread_mutex_lock(&file_usage_mutex);
+  std::unique_lock<std::mutex> lk(file_usage_mutex);
   file_usage_map.erase(filename);
-  pthread_cond_broadcast(&file_usage_cv);
-  pthread_mutex_unlock(&file_usage_mutex);
+  file_usage_mutex.unlock();
+  file_usage_cv.notify_all()
 }
 
 void file_segment_map_start_read(string filename, int segment) {
-  pthread_mutex_lock(&file_usage_mutex);
-  if (file_usage_map.find(filename) != file_usage_map.end() && file_usage_map[filename] == -1) {
-    pthread_cond_wait(&file_usage_cv, &file_usage_mutex);
-  }
-  if (file_usage_map.find(filename) != file_usage_map.end()) {
-    file_usage_map[filename]++;
-  } else {
-    file_usage_map[filename] = 1;
-  }
-  pthread_mutex_unlock(&file_usage_mutex);
+  std::unique_lock<std::mutex> lk(file_segment_mutex);
+  cv.wait(file_segment_cv, []{return !(file_segment_map.find(std::pair<string, int> (filename, segment)) != file_segment_map.end() && file_segment_map[filename] == -1);});
+  file_segment_map[std::pair<string, int> (filename, segment)]++;
+  file_segment_mutex.unlock();
 }
 
-void file_usage_map_finish_read(string filename) {
-  pthread_mutex_lock(&file_usage_mutex);
-  file_usage_map[filename]--;
-  if (file_usage_map[filename] == 0) {
-    file_usage_map.erase(filename);
+void file_usage_map_finish_read(string filename, int segment) {
+  std::unique_lock<std::mutex> lk(file_segment_mutex);
+  file_segment_map[std::pair<string, int> (filename, segment)]--;
+  if (file_segment_map[std::pair<string, int> (filename, segment)] == 0) {
+    file_segment_map.erase(std::pair<string, int> (filename, segment));
   }
-  pthread_cond_broadcast(&file_usage_cv);
-  pthread_mutex_unlock(&file_usage_mutex);
+  file_segment_mutex.unlock();
+  file_segment_cv.notify_all();
 }
 
-void file_usage_map_start_write(string filename) {
-  pthread_mutex_lock(&file_usage_mutex);
-  if (file_usage_map.find(filename) != file_usage_map.end()) {
-    pthread_cond_wait(&file_usage_cv, &file_usage_mutex);
-  }
-  file_usage_map[filename] = -1;
-  pthread_mutex_unlock(&file_usage_mutex);
+void file_usage_map_start_write(string filename, int segment) {
+  std::unique_lock<std::mutex> lk(file_segment_mutex);
+  cv.wait(file_segment_cv, []{return (file_segment_map.find(std::pair<string, int> (filename, segment)) == file_segment_map.end());});
+  file_segment_map[std::pair<string, int> (filename, segment)] = -1;
+  file_segment_mutex.unlock();
 }
 
-void file_usage_map_finish_write(string filename) {
-  pthread_mutex_lock(&file_usage_mutex);
-  file_usage_map.erase(filename);
-  pthread_cond_broadcast(&file_usage_cv);
-  pthread_mutex_unlock(&file_usage_mutex);
+void file_usage_map_finish_write(string filename, int segment) {
+  std::unique_lock<std::mutex> lk(file_segment_mutex);
+  file_segment_map.erase(std::pair<string, int> (filename, segment));
+  file_segment_mutex.unlock();
+  file_segment_cv.notify_all()
 }
+//////////////////////////////////////////////////////////////////
 
 string read_file(string filename, int bytes_to_read, int offset) {
-  ifstream file;
   file_usage_map_start_read(filename);
 
+  ifstream file;
   file.open(filename.c_str(), ios::binary);
   if (!file) {
     file_usage_map_finish_read(filename);
@@ -140,14 +125,13 @@ string read_file(string filename, int bytes_to_read, int offset) {
   file.read(&data[0], bytes_to_read);
 
   file_usage_map_finish_read(filename);
-
   return data;
 }
 
 string write_file(string filename, string data, int offset) {
-  ofstream file;
   file_usage_map_start_read(filename);
 
+  ofstream file;
   file.open(filename.c_str(), ios::binary);
   if (!file) {
     file_usage_map_finish_read(filename);
@@ -182,8 +166,8 @@ string read_dir(string dir_name) {
 }
 
 string read_stat(string filename) {
-  struct stat file_stat;
   file_usage_map_start_read(filename);
+  struct stat file_stat;
 
   int status = stat(filename.c_str(), &file_stat);
 
@@ -256,29 +240,37 @@ void* handleConnection(void* kit) {
 
     } else if (connection_type.compare("truncate") == 0) {
       string path = root_dir + json_msg["path"].GetString();
+      file_usage_map_start_write(path);
       size_t length = json_msg["length"].GetInt();
       string feedback = to_string(truncate(path.c_str(), length));
+      file_usage_map_finish_write(path);
       send(socket, feedback.c_str(), feedback.length(), 0);
 
     } else if (connection_type.compare("chmod") == 0) {
       string path = root_dir + json_msg["path"].GetString();
+      file_usage_map_start_write(path);
       mode_t mode = json_msg["mode"].GetInt();
       string feedback = to_string(chmod(path.c_str(), mode));
+      file_usage_map_finish_write(path);
       send(socket, feedback.c_str(), feedback.length(), 0);
 
     } else if (connection_type.compare("chown") == 0) {
       string path = root_dir + json_msg["path"].GetString();
+      file_usage_map_start_write(path);
       uid_t uid = json_msg["uid"].GetInt();
       gid_t gid = json_msg["gid"].GetInt();
       string feedback = to_string(chown(path.c_str(), uid, gid));
+      file_usage_map_finish_write(path);
       send(socket, feedback.c_str(), feedback.length(), 0);
 
     } else if (connection_type.compare("create") == 0) {
       string path = root_dir + json_msg["path"].GetString();
+      file_usage_map_start_write(path);
       mode_t mode = json_msg["mode"].GetInt();
       ofstream file;
       file.open(path.c_str(), ios::binary);
       file.close();
+      file_usage_map_finish_write(path);
       chmod(path.c_str(), mode);
     }
     
