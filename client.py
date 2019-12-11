@@ -17,19 +17,22 @@ class Client:
         print(self.listen())
 
     def send_str_msg(self, msg_str):
-        self.sock.send(msg_str)
+        self.sock.send(msg_str.encode())
+
+    def send_byte_msg(self, msg):
+        self.sock.send(msg)
 
     def send_append_command(self, text):
         cmd = 'append'.ljust(8)
-        self.send_str_message(cmd)
+        self.send_str_msg(cmd)
 
     def send_connect_command(self):
         cmd = 'connect'.ljust(8)
-        self.send_str_message(cmd)
+        self.send_str_msg(cmd)
 
     def send_disconnect_command(self):
         cmd = 'dconnect'.ljust(8)
-        self.send_str_message(cmd)
+        self.send_str_msg(cmd)
 
     def listen(self, size=1024):
         while True:

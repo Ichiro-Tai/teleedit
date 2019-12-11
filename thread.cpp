@@ -28,7 +28,7 @@ static const char* root_dir = "root_dir";
 std::mutex file_segment_mutex;
 std::condition_variable file_segment_cv;
 static unordered_map<string, unordered_map<int, int>> file_segment_map;
-const int BYTES_PER_SEGMENT = 1024;
+const int BYTES_PER_SEGMENT = 4096;
 
 std::mutex file_usage_mutex;
 std::condition_variable file_usage_cv;
@@ -126,22 +126,24 @@ void file_segment_map_finish_write(string filename, int segment) {
 }
 //////////////////////////////////////////////////////////////////
 
-string read_file(string filename, int bytes_to_read, int offset, int client_fd) {
+void read_file(string filename, int bytes_to_read, int offset, int client_fd) {
   file_usage_map_start_read(filename);
 
   ifstream file;
   file.open(filename.c_str(), ios::binary);
   if (!file) {
     file_usage_map_finish_read(filename);
-    return "CANNOT OPEN FILE\n";
+    send(client_fd, "CANNOT OPEN FILE\n", strlen("CANNOT OPEN FILE\n"), 0);
   }
 
   char* buffer = new char[BYTES_PER_SEGMENT];
   while (bytes_to_read > 0) {
+    cout << "bytes to read: " << std::to_string(bytes_to_read) << "\n";
     file_segment_map_start_read(filename, offset / BYTES_PER_SEGMENT);
     file.seekg(offset, ios::beg);
     int bytes_to_read_current_itr = bytes_to_read < (BYTES_PER_SEGMENT - offset % BYTES_PER_SEGMENT) ? bytes_to_read : (BYTES_PER_SEGMENT - offset % BYTES_PER_SEGMENT);
     file.read(buffer, bytes_to_read_current_itr);
+    cout << "data: " << buffer << "\n";
     send(client_fd, buffer, bytes_to_read_current_itr, 0);
     file_segment_map_finish_read(filename, offset / BYTES_PER_SEGMENT);
     offset += bytes_to_read_current_itr;
@@ -149,8 +151,9 @@ string read_file(string filename, int bytes_to_read, int offset, int client_fd) 
   }
   delete[] buffer;
 
+  file.close();
+
   file_usage_map_finish_read(filename);
-  return "OK\n";
 }
 
 string write_file(string filename, int offset, int client_fd) {
@@ -176,6 +179,8 @@ string write_file(string filename, int offset, int client_fd) {
     offset += bytes_to_write_current_itr;
     bytes_to_write -= bytes_to_write_current_itr;
   }
+
+  file.close();
 
   file_usage_map_finish_read(filename);
   return "OK\n";
@@ -204,6 +209,7 @@ string read_stat(string filename) {
   struct stat file_stat;
 
   int status = stat(filename.c_str(), &file_stat);
+  cout << "status: " << std::to_string(status) << endl;
 
   if (status == -1) {
     file_usage_map_finish_read(filename);
@@ -235,79 +241,83 @@ void* handleConnection(void* kit) {
     std::string connection_type = recv(socket, 8);
     cout << "Connection type: " << connection_type << endl;
 
-    if (connection_type.compare("connect") == 0) {
+    if (connection_type.compare("connect ") == 0) {
       string greetings = "you are connected";
       send(socket, greetings.c_str(), greetings.length(), 0);
 
-    } else if (connection_type.compare("read") == 0){
-      size_t size = stoul(recv(socket, 16));
+    } else if (connection_type.compare("read    ") == 0){
+      string aaa = recv(socket, 16);
+      cout << "raw size: " << aaa << "\n";
+      size_t size = stoul(aaa);
+      cout << "received read size: " << size << "\n";
       size_t offset = stoul(recv(socket, 16));
-      std::string path = recv(socket, stoul(recv(socket, 16)));
+      std::string path = root_dir + recv(socket, stoul(recv(socket, 16)));
 
-      string feedback = read_file(path, size, offset, socket);
-      send(socket, feedback.c_str(), feedback.length(), 0);
+      read_file(path, size, offset, socket);
 
-    } else if (connection_type.compare("write") == 0){
+    } else if (connection_type.compare("write   ") == 0){
       size_t offset = stoul(recv(socket, 16));
-      std::string path = recv(socket, stoul(recv(socket, 16)));
+      std::string path = root_dir + recv(socket, stoul(recv(socket, 16)));
 
       string feedback = write_file(path, offset, socket);
       send(socket, feedback.c_str(), feedback.length(), 0);
 
-    } else if (connection_type.compare("readdir") == 0){
-      std::string path = recv(socket, stoul(recv(socket, 16)));
+    } else if (connection_type.compare("readdir ") == 0){
+      std::string path = root_dir + recv(socket, stoul(recv(socket, 16)));
 
       string feedback = read_dir(path);
       send(socket, feedback.c_str(), feedback.length(), 0);
 
-    } else if (connection_type.compare("disconnect") == 0) {
+    } else if (connection_type.compare("dconnect") == 0) {
       send(socket, "disconnected from host", 22, 0);
       return NULL;
 
-    } else if (connection_type.compare("getattr") == 0) {
-      std::string path = recv(socket, stoul(recv(socket, 16)));
+    } else if (connection_type.compare("getattr ") == 0) {
+      std::string path = root_dir + recv(socket, stoul(recv(socket, 16)));
+      cout << "path: " << path << endl;
 
       string feedback = read_stat(path);
       send(socket, feedback.c_str(), feedback.length(), 0);
 
     } else if (connection_type.compare("truncate") == 0) {
       size_t length = stoul(recv(socket, 16));
-      std::string path = recv(socket, stoul(recv(socket, 16)));
+      std::string path = root_dir + recv(socket, stoul(recv(socket, 16)));
 
       file_usage_map_start_write(path);
       string feedback = to_string(truncate(path.c_str(), length));
       file_usage_map_finish_write(path);
       send(socket, feedback.c_str(), feedback.length(), 0);
 
-    } else if (connection_type.compare("chmod") == 0) {
+    } else if (connection_type.compare("chmod   ") == 0) {
       int mode = stoi(recv(socket, 16));
-      std::string path = recv(socket, stoul(recv(socket, 16)));
+      std::string path = root_dir + recv(socket, stoul(recv(socket, 16)));
 
       file_usage_map_start_write(path);
       string feedback = to_string(chmod(path.c_str(), mode));
+      cout << "status: " << feedback << endl;
       file_usage_map_finish_write(path);
       send(socket, feedback.c_str(), feedback.length(), 0);
 
-    } else if (connection_type.compare("chown") == 0) {
+    } else if (connection_type.compare("chown   ") == 0) {
       uid_t uid = stoul(recv(socket, 16));
       uid_t gid = stoul(recv(socket, 16));
-      std::string path = recv(socket, stoul(recv(socket, 16)));
+      std::string path = root_dir + recv(socket, stoul(recv(socket, 16)));
 
       file_usage_map_start_write(path);
       string feedback = to_string(chown(path.c_str(), uid, gid));
       file_usage_map_finish_write(path);
       send(socket, feedback.c_str(), feedback.length(), 0);
 
-    } else if (connection_type.compare("create") == 0) {
+    } else if (connection_type.compare("create  ") == 0) {
       int mode = stoi(recv(socket, 16));
-      std::string path = recv(socket, stoul(recv(socket, 16)));
+      std::string path = root_dir + recv(socket, stoul(recv(socket, 16)));
 
       file_usage_map_start_write(path);
-      ofstream file;
-      file.open(path.c_str(), ios::binary);
-      file.close();
+      ofstream output(path);
+      cout << "creating file: " << path << endl;
+      string feedback = to_string(chmod(path.c_str(), mode));
       file_usage_map_finish_write(path);
-      chmod(path.c_str(), mode);
+      send(socket, feedback.c_str(), feedback.length(), 0);
     }
 
     //add to epoll
