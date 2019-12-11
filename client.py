@@ -2,7 +2,6 @@ import datetime
 import time
 import sys
 import socket
-import json
 
 HOST_TCP_PORT = 5005
 
@@ -20,29 +19,17 @@ class Client:
     def send_str_msg(self, msg_str):
         self.sock.send(msg_str)
 
-    def send_json_message(self, msg_dict):
-        print(msg_dict)
-        cmd_json = json.dumps(msg_dict).encode('utf-8')
-        self.sock.send(cmd_json)
-
     def send_append_command(self, text):
-        cmd = {
-            'type' : 'append',
-            'data' : text
-        }
-        self.send_json_message(cmd)
+        cmd = 'append'.ljust(8)
+        self.send_str_message(cmd)
 
     def send_connect_command(self):
-        cmd = {
-            'type': 'connect'
-        }
-        self.send_json_message(cmd)
+        cmd = 'connect'.ljust(8)
+        self.send_str_message(cmd)
 
     def send_disconnect_command(self):
-        cmd = {
-            'type': 'disconnect'
-        }
-        self.send_json_message(cmd)
+        cmd = 'dconnect'.ljust(8)
+        self.send_str_message(cmd)
 
     def listen(self, size=1024):
         while True:
