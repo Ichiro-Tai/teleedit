@@ -53,6 +53,11 @@ class FS(LoggingMixIn, Operations):
         self.client.send_str_msg(cmd)
         return 0
 
+    def rmdir(self, path):
+        cmd = 'delete'.ljust(8) + str(len(path)).ljust(16) + path
+        self.client.send_str_msg(cmd)
+        return 0
+
     def unlink(self, path):
         cmd = 'delete'.ljust(8) + str(len(path)).ljust(16) + path
         self.client.send_str_msg(cmd)

@@ -13,7 +13,6 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/epoll.h>
-#include <direct.h>
 #include <utility>
 
 #include <mutex>              // std::mutex, std::unique_lock
@@ -323,9 +322,8 @@ void* handleConnection(void* kit) {
       int mode = stoi(recv(socket, 16));
       std::string path = root_dir + recv(socket, stoul(recv(socket, 16)));
 
-      mkdir(path.c_str());
+      mkdir(path.c_str(), mode);
       cout << "creating file: " << path << endl;
-      string feedback = to_string(chmod(path.c_str(), mode));
     } else if (connection_type.compare("delete  ") == 0) {
       std::string path = root_dir + recv(socket, stoul(recv(socket, 16)));
 
