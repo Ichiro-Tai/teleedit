@@ -44,7 +44,17 @@ class FS(LoggingMixIn, Operations):
     # File methods
     #--------------------------
     def create(self, path, mode):
-        cmd = 'create'.ljust(8) + str(mode).ljust(16) + str(len(directory + path)).ljust(16) + path
+        cmd = 'create'.ljust(8) + str(mode).ljust(16) + str(len(path)).ljust(16) + path
+        self.client.send_str_msg(cmd)
+        return 0
+
+    def mkdir(self, path, mode):
+        cmd = 'mkdir'.ljust(8) + str(mode).ljust(16) + str(len(path)).ljust(16) + path
+        self.client.send_str_msg(cmd)
+        return 0
+
+    def unlink(self, path):
+        cmd = 'delete'.ljust(8) + str(len(path)).ljust(16) + path
         self.client.send_str_msg(cmd)
         return 0
 
@@ -63,14 +73,12 @@ class FS(LoggingMixIn, Operations):
     def read(self, path, size, offset, fh):
         cmd = 'read'.ljust(8) + str(size).ljust(16) + str(offset).ljust(16) + str(len(path)).ljust(16) + path
         self.client.send_str_msg(cmd)
-        buf = self.client.listen(size).encode('utf-8')
-        print("data:", buf)
+        buf = self.client.listen(size)
         return buf
 
     def write(self, path, data, offset, fh):
-        cmd = 'write'.ljust(8) + str(offset).ljust(16) + str(len(path)).ljust(16) + path + str(len(data)).ljust(16)
-        self.client.send_str_msg(cmd)
-        self.client.send_byte_msg(data)
+        cmd = ('write'.ljust(8) + str(offset).ljust(16) + str(len(path)).ljust(16) + path + str(len(data)).ljust(16)).encode() + data
+        self.client.send_byte_msg(cmd)
         return int(self.client.listen())
 
 if __name__ == '__main__':

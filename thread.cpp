@@ -13,6 +13,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/epoll.h>
+#include <direct.h>
 #include <utility>
 
 #include <mutex>              // std::mutex, std::unique_lock
@@ -158,13 +159,14 @@ void read_file(string filename, int bytes_to_read, int offset, int client_fd) {
 
 string write_file(string filename, int offset, int client_fd) {
   size_t bytes_to_write = stoul(recv(client_fd, 16));
+  std::cout << "bytes to write: " << std::to_string(bytes_to_write) << endl;
   file_usage_map_start_read(filename);
 
   ofstream file;
   file.open(filename.c_str(), ios::binary);
   if (!file) {
     file_usage_map_finish_read(filename);
-    return "CANNOT OPEN FILE\n";
+    return "-1\n";
   }
 
   std::cout << std::to_string(offset) << std::endl;
@@ -173,7 +175,9 @@ string write_file(string filename, int offset, int client_fd) {
     file_segment_map_start_write(filename, offset / BYTES_PER_SEGMENT);
     file.seekp(offset, ios::beg);
     int bytes_to_write_current_itr = bytes_to_write < (BYTES_PER_SEGMENT - offset % BYTES_PER_SEGMENT) ? bytes_to_write : (BYTES_PER_SEGMENT - offset % BYTES_PER_SEGMENT);
+    cout << "bytes to write: " << std::to_string(bytes_to_write_current_itr) << endl;
     std::string data = recv(client_fd, bytes_to_write_current_itr);
+    cout << "data: " << data << endl;
     file.write(data.c_str(), data.length());
     file_segment_map_finish_write(filename, offset / BYTES_PER_SEGMENT);
     offset += bytes_to_write_current_itr;
@@ -183,7 +187,7 @@ string write_file(string filename, int offset, int client_fd) {
   file.close();
 
   file_usage_map_finish_read(filename);
-  return "OK\n";
+  return std::to_string(offset) + "\n";
 }
 
 string read_dir(string dir_name) {
@@ -286,7 +290,6 @@ void* handleConnection(void* kit) {
       file_usage_map_start_write(path);
       string feedback = to_string(truncate(path.c_str(), length));
       file_usage_map_finish_write(path);
-      send(socket, feedback.c_str(), feedback.length(), 0);
 
     } else if (connection_type.compare("chmod   ") == 0) {
       int mode = stoi(recv(socket, 16));
@@ -296,7 +299,6 @@ void* handleConnection(void* kit) {
       string feedback = to_string(chmod(path.c_str(), mode));
       cout << "status: " << feedback << endl;
       file_usage_map_finish_write(path);
-      send(socket, feedback.c_str(), feedback.length(), 0);
 
     } else if (connection_type.compare("chown   ") == 0) {
       uid_t uid = stoul(recv(socket, 16));
@@ -317,7 +319,20 @@ void* handleConnection(void* kit) {
       cout << "creating file: " << path << endl;
       string feedback = to_string(chmod(path.c_str(), mode));
       file_usage_map_finish_write(path);
-      send(socket, feedback.c_str(), feedback.length(), 0);
+    } else if (connection_type.compare("mkdir   ") == 0) {
+      int mode = stoi(recv(socket, 16));
+      std::string path = root_dir + recv(socket, stoul(recv(socket, 16)));
+
+      mkdir(path.c_str());
+      cout << "creating file: " << path << endl;
+      string feedback = to_string(chmod(path.c_str(), mode));
+    } else if (connection_type.compare("delete  ") == 0) {
+      std::string path = root_dir + recv(socket, stoul(recv(socket, 16)));
+
+      file_usage_map_start_write(path);
+      cout << "deleting file: " << path << endl;
+      string feedback = to_string(remove(path.c_str()));
+      file_usage_map_finish_write(path);
     }
 
     //add to epoll
