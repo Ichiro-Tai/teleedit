@@ -75,7 +75,7 @@ class FS(LoggingMixIn, Operations):
     def write(self, path, data, offset, fh):
         path = path.encode('utf-8')
         #data = data.decode('utf-8').encode('utf-8')
-        cmd = 'write'.ljust(8) + str(offset).ljust(16) + str(len(path)).ljust(16) + str(len(data)).ljust(16) + path + data
+        cmd = 'write'.ljust(8) + str(offset).ljust(16) + str(len(path)).ljust(16) + path + str(len(data)).ljust(16)  + data
         self.client.send_str_msg(cmd)
         return int(self.client.listen())
 

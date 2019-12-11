@@ -112,7 +112,7 @@ int main(){
     setsockopt(server_socket, SOL_SOCKET, SO_REUSEPORT, &optval, sizeof(optval));
     bind(server_socket, result->ai_addr, result->ai_addrlen);
     listen(server_socket, MAX_CLIENTS);
-    cout << "Listening" << endl;   
+    cout << "Listening" << endl;
     //Epoll
     epoll_fd = epoll_create1(0);
     if(epoll_fd == -1){perror("epoll_create1"); exit(-1);}
@@ -124,7 +124,7 @@ int main(){
         perror("epoll_ctl: server_socket");
         exit(-1);
     }
-    struct epoll_event *events = calloc(MAX_CLIENTS, sizeof(struct epoll_event));
+    struct epoll_event *events = (epoll_event*) calloc(MAX_CLIENTS, sizeof(struct epoll_event));
     //Init working threads
     task_queue = new Queue(-1);
     thread_starter_kit work_thread_param;
@@ -135,23 +135,23 @@ int main(){
               &handleConnection, (void*)&work_thread_param);
     }
     while (exit_server == 0) {
-        int nFds = epoll_wait(epollFd, events, MAX_CLIENTS, -1);
+        int nFds = epoll_wait(epoll_fd, events, MAX_CLIENTS, -1);
         for (int i = 0; i < nFds; i++){
             if(exit_server) break;
             int sock = events[i].data.fd;
-            if(sock == server_sock){ //accept new client
+            if(sock == server_socket){ //accept new client
                 //accept
                 socklen_t addrlen = sizeof(struct sockaddr);
                 struct sockaddr addr;
                 memset(&addr, 0, addrlen);
-                int client_sock = accept(server_sock, &addr, &addrlen);
+                int client_sock = accept(server_socket, &addr, &addrlen);
                 int flags = fcntl(client_sock, F_GETFL, 0);
                 fcntl(client_sock, F_SETFL, flags | O_NONBLOCK);
                 //epoll
                 memset(&ev, 0, sizeof(struct epoll_event));
                 ev.events = EPOLLIN;
                 ev.data.fd = client_sock;
-                epoll_ctl(epollFd, EPOLL_CTL_ADD, client_sock, &ev);
+                epoll_ctl(epoll_fd, EPOLL_CTL_ADD, client_sock, &ev);
             } else { // client has new message
                 epoll_ctl(epoll_fd, EPOLL_CTL_DEL, sock, NULL);
                 Task *t = new Task{sock};
