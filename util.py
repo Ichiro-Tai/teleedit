@@ -27,8 +27,8 @@ class File:
         self.f.close()
 
 def parse_start_input():
-    if (len(sys.argv) - 1 < 1):
+    if (len(sys.argv) - 1 < 2):
         print("Invalid format")
         exit(1)
 
-    return sys.argv[1]
+    return sys.argv[1],sys.argv[2]

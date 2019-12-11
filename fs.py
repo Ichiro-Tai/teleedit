@@ -90,9 +90,9 @@ if __name__ == '__main__':
     import tempfile
     from util import parse_start_input
 
-    host_ip = parse_start_input()
+    host_ip, virtual_dir = parse_start_input()
 
-    with tempfile.TemporaryDirectory() as directory:
+    with tempfile.TemporaryDirectory(dir=virtual_dir) as directory:
         print('Mountpoint at:', directory)
         fuse = FUSE(
             FS(host_ip),

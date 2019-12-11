@@ -138,12 +138,10 @@ void read_file(string filename, int bytes_to_read, int offset, int client_fd) {
 
   char* buffer = new char[BYTES_PER_SEGMENT];
   while (bytes_to_read > 0) {
-    cout << "bytes to read: " << std::to_string(bytes_to_read) << "\n";
     file_segment_map_start_read(filename, offset / BYTES_PER_SEGMENT);
     file.seekg(offset, ios::beg);
     int bytes_to_read_current_itr = bytes_to_read < (BYTES_PER_SEGMENT - offset % BYTES_PER_SEGMENT) ? bytes_to_read : (BYTES_PER_SEGMENT - offset % BYTES_PER_SEGMENT);
     file.read(buffer, bytes_to_read_current_itr);
-    cout << "data: " << buffer << "\n";
     send(client_fd, buffer, bytes_to_read_current_itr, 0);
     file_segment_map_finish_read(filename, offset / BYTES_PER_SEGMENT);
     offset += bytes_to_read_current_itr;
@@ -158,7 +156,6 @@ void read_file(string filename, int bytes_to_read, int offset, int client_fd) {
 
 string write_file(string filename, int offset, int client_fd) {
   size_t bytes_to_write = stoul(recv(client_fd, 16));
-  std::cout << "bytes to write: " << std::to_string(bytes_to_write) << endl;
   file_usage_map_start_read(filename);
 
   ofstream file;
@@ -168,15 +165,13 @@ string write_file(string filename, int offset, int client_fd) {
     return "-1\n";
   }
 
-  std::cout << std::to_string(offset) << std::endl;
+  size_t bytes_to_write_send = bytes_to_write;
 
   while (bytes_to_write > 0) {
     file_segment_map_start_write(filename, offset / BYTES_PER_SEGMENT);
     file.seekp(offset, ios::beg);
     int bytes_to_write_current_itr = bytes_to_write < (BYTES_PER_SEGMENT - offset % BYTES_PER_SEGMENT) ? bytes_to_write : (BYTES_PER_SEGMENT - offset % BYTES_PER_SEGMENT);
-    cout << "bytes to write: " << std::to_string(bytes_to_write_current_itr) << endl;
     std::string data = recv(client_fd, bytes_to_write_current_itr);
-    cout << "data: " << data << endl;
     file.write(data.c_str(), data.length());
     file_segment_map_finish_write(filename, offset / BYTES_PER_SEGMENT);
     offset += bytes_to_write_current_itr;
@@ -186,7 +181,7 @@ string write_file(string filename, int offset, int client_fd) {
   file.close();
 
   file_usage_map_finish_read(filename);
-  return std::to_string(offset) + "\n";
+  return std::to_string(bytes_to_write_send) + "\n";
 }
 
 string read_dir(string dir_name) {
@@ -212,7 +207,6 @@ string read_stat(string filename) {
   struct stat file_stat;
 
   int status = stat(filename.c_str(), &file_stat);
-  cout << "status: " << std::to_string(status) << endl;
 
   if (status == -1) {
     file_usage_map_finish_read(filename);
@@ -250,9 +244,7 @@ void* handleConnection(void* kit) {
 
     } else if (connection_type.compare("read    ") == 0){
       string aaa = recv(socket, 16);
-      cout << "raw size: " << aaa << "\n";
       size_t size = stoul(aaa);
-      cout << "received read size: " << size << "\n";
       size_t offset = stoul(recv(socket, 16));
       std::string path = root_dir + recv(socket, stoul(recv(socket, 16)));
 
@@ -277,7 +269,6 @@ void* handleConnection(void* kit) {
 
     } else if (connection_type.compare("getattr ") == 0) {
       std::string path = root_dir + recv(socket, stoul(recv(socket, 16)));
-      cout << "path: " << path << endl;
 
       string feedback = read_stat(path);
       send(socket, feedback.c_str(), feedback.length(), 0);
@@ -296,7 +287,6 @@ void* handleConnection(void* kit) {
 
       file_usage_map_start_write(path);
       string feedback = to_string(chmod(path.c_str(), mode));
-      cout << "status: " << feedback << endl;
       file_usage_map_finish_write(path);
 
     } else if (connection_type.compare("chown   ") == 0) {
@@ -315,20 +305,17 @@ void* handleConnection(void* kit) {
 
       file_usage_map_start_write(path);
       ofstream output(path);
-      cout << "creating file: " << path << endl;
       string feedback = to_string(chmod(path.c_str(), mode));
       file_usage_map_finish_write(path);
     } else if (connection_type.compare("mkdir   ") == 0) {
       int mode = stoi(recv(socket, 16));
       std::string path = root_dir + recv(socket, stoul(recv(socket, 16)));
 
-      mkdir(path.c_str(), mode);
-      cout << "creating file: " << path << endl;
+      mkdir(path.c_str(), mode);;
     } else if (connection_type.compare("delete  ") == 0) {
       std::string path = root_dir + recv(socket, stoul(recv(socket, 16)));
 
       file_usage_map_start_write(path);
-      cout << "deleting file: " << path << endl;
       string feedback = to_string(remove(path.c_str()));
       file_usage_map_finish_write(path);
     }
