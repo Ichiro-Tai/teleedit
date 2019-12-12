@@ -78,7 +78,7 @@ class FS(LoggingMixIn, Operations):
     def read(self, path, size, offset, fh):
         cmd = 'read'.ljust(8) + str(size).ljust(16) + str(offset).ljust(16) + str(len(path)).ljust(16) + path
         self.client.send_str_msg(cmd)
-        buf = self.client.listen(size)
+        buf = self.client.listen(size).encode('utf-8')
         return buf
 
     def write(self, path, data, offset, fh):
@@ -92,7 +92,7 @@ if __name__ == '__main__':
 
     host_ip, virtual_dir = parse_start_input()
 
-    with tempfile.TemporaryDirectory(dir=virtual_dir) as directory:
+    with tempfile.TemporaryDirectory() as directory:
         print('Mountpoint at:', directory)
         fuse = FUSE(
             FS(host_ip),

@@ -47,6 +47,7 @@ string recv(int socket, int bytes) {
 
 //map helper functions
 void file_usage_map_start_read(string filename) {
+  cout << "start read: " << filename << endl;
   std::unique_lock<std::mutex> lk(file_usage_mutex);
   while (file_usage_map.find(filename) != file_usage_map.end() && file_usage_map[filename] == -1) {
     file_usage_cv.wait(lk);
@@ -165,6 +166,8 @@ string write_file(string filename, int offset, int client_fd) {
     return "-1\n";
   }
 
+  std::cout << std::to_string(offset) << std::endl;
+
   size_t bytes_to_write_send = bytes_to_write;
 
   while (bytes_to_write > 0) {
@@ -207,6 +210,7 @@ string read_stat(string filename) {
   struct stat file_stat;
 
   int status = stat(filename.c_str(), &file_stat);
+  cout << "status: " << std::to_string(status) << endl;
 
   if (status == -1) {
     file_usage_map_finish_read(filename);
@@ -244,7 +248,9 @@ void* handleConnection(void* kit) {
 
     } else if (connection_type.compare("read    ") == 0){
       string aaa = recv(socket, 16);
+      cout << "raw size: " << aaa << "\n";
       size_t size = stoul(aaa);
+      cout << "received read size: " << size << "\n";
       size_t offset = stoul(recv(socket, 16));
       std::string path = root_dir + recv(socket, stoul(recv(socket, 16)));
 
@@ -269,6 +275,7 @@ void* handleConnection(void* kit) {
 
     } else if (connection_type.compare("getattr ") == 0) {
       std::string path = root_dir + recv(socket, stoul(recv(socket, 16)));
+      cout << "path: " << path << endl;
 
       string feedback = read_stat(path);
       send(socket, feedback.c_str(), feedback.length(), 0);
@@ -287,6 +294,7 @@ void* handleConnection(void* kit) {
 
       file_usage_map_start_write(path);
       string feedback = to_string(chmod(path.c_str(), mode));
+      cout << "status: " << feedback << endl;
       file_usage_map_finish_write(path);
 
     } else if (connection_type.compare("chown   ") == 0) {
@@ -305,17 +313,20 @@ void* handleConnection(void* kit) {
 
       file_usage_map_start_write(path);
       ofstream output(path);
+      cout << "creating file: " << path << endl;
       string feedback = to_string(chmod(path.c_str(), mode));
       file_usage_map_finish_write(path);
     } else if (connection_type.compare("mkdir   ") == 0) {
       int mode = stoi(recv(socket, 16));
       std::string path = root_dir + recv(socket, stoul(recv(socket, 16)));
 
-      mkdir(path.c_str(), mode);;
+      mkdir(path.c_str(), mode);
+      cout << "creating file: " << path << endl;
     } else if (connection_type.compare("delete  ") == 0) {
       std::string path = root_dir + recv(socket, stoul(recv(socket, 16)));
 
       file_usage_map_start_write(path);
+      cout << "deleting file: " << path << endl;
       string feedback = to_string(remove(path.c_str()));
       file_usage_map_finish_write(path);
     }
